@@ -37,41 +37,41 @@ contract ThreatRegistry {
     // 5. 한 기관이 중복 투표하는 것 방지
     mapping(bytes32 => mapping(address => bool)) public voted;
 
-    // 2명 이상 승인하면 확정
-    uint8 public constant THRESHOLD = 2;
+    // 참여 Validator의 과반수가 승인하면 확정
+    uint256 public validatorCount;
+    uint256 public threshold;
+
+    constructor(address[] memory _validators) {
+        require(_validators.length > 0, "No validators");
+
+        validatorCount = _validators.length;
+        threshold = validatorCount / 2 + 1;
+
+        for (uint256 i = 0; i < _validators.length; i++) {
+            validators[_validators[i]] = true;
+        }
+    }
 
 
     // Events
     event ThreatSubmitted(
         bytes32 indexed threatId
     );
-
     event ThreatApproved(
         bytes32 indexed threatId,
         address indexed validator,
         uint8 approveCount
     );
-
     event ThreatRejected(
         bytes32 indexed threatId,
         address indexed validator,
         uint8 rejectCount
     );
-
     event ThreatConfirmed(
         bytes32 indexed threatId,
         bytes32 urlHash,
         bytes32 apkHash
     );
-
-
-    // Constructor
-    constructor(address[] memory _validators) {
-
-        for (uint256 i = 0; i < _validators.length; i++) {
-            validators[_validators[i]] = true;
-        }
-    }
 
 
     // 검증기관만 실행 가능
@@ -80,12 +80,11 @@ contract ThreatRegistry {
             validators[msg.sender],
             "Not validator"
         );
-
         _;
     }
 
 
-    // ① 위협 등록 (악성 의심 정보 등록)
+    // 1. 위협 등록 (악성 의심 정보 등록)
     function submitThreat(
         bytes32 _urlHash,
         bytes32 _apkHash,
@@ -122,14 +121,12 @@ contract ThreatRegistry {
 
             createdAt: block.timestamp
         });
-
         emit ThreatSubmitted(threatId);
-
         return threatId;
     }
 
 
-    // ② 기관 승인 (악성이라고 승인)
+    // 2. 기관 승인 (악성이라고 승인)
     function approveThreat(
         bytes32 _threatId
     ) public onlyValidator {
@@ -156,11 +153,9 @@ contract ThreatRegistry {
             threat.approveCount
         );
 
-        // 2명 승인했는지 검사
-        if (threat.approveCount >= THRESHOLD) {
-
+        // 과반수 승인했는지 검사
+        if (threat.approveCount >= threshold) {
             threat.status = Status.CONFIRMED;
-
             emit ThreatConfirmed(
                 _threatId,
                 threat.urlHash,
@@ -170,7 +165,7 @@ contract ThreatRegistry {
     }
 
 
-    // ③ 기관 거절 (정상이라고 거절)
+    // 3. 기관 거절 (정상이라고 거절)
     function rejectThreat(
         bytes32 _threatId
     ) public onlyValidator {
@@ -182,7 +177,6 @@ contract ThreatRegistry {
             threat.status == Status.PENDING,
             "Not pending"
         );
-
         require(
             !voted[_threatId][msg.sender],
             "Already voted"
@@ -198,16 +192,13 @@ contract ThreatRegistry {
             threat.rejectCount
         );
 
-
-        // 2명이 거절하면 REJECTED
-        if (threat.rejectCount >= THRESHOLD) {
-
+        // 과반수가 거절하면 REJECTED
+        if (threat.rejectCount >= threshold) {
             threat.status = Status.REJECTED;
         }
     }
 
-
-    // ④ 최종 블랙리스트인지 조회
+    // 4. 최종 블랙리스트인지 조회
     function isBlacklisted(
         bytes32 _threatId
     ) public view returns (bool) {
