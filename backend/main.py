@@ -1,10 +1,22 @@
 import asyncio
 import json
+import sys
 import time
 from typing import Dict, List, Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+# -----------------------------------------------------------------------
+# Windows + Playwright fix: on Windows, asyncio's default SelectorEventLoop
+# cannot spawn subprocesses (Playwright launches the browser as a real
+# subprocess), which raises `NotImplementedError` deep inside Playwright.
+# uvicorn's `--reload` mode in particular tends to end up on the Selector
+# loop on Windows, so we explicitly force the Proactor policy here, before
+# anything else creates an event loop. This is a no-op on Linux/macOS.
+# -----------------------------------------------------------------------
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from analyzer import SandboxAnalyzer
 from sandbox import sandbox_engine
@@ -252,6 +264,11 @@ async def analyze_sandbox(
     # that genuinely blocks a (fake) transfer, rather than a UI label only.
     # -------------------------------------------------------------
     try:
+        was_locked_before = mock_bank_manager.is_locked(account_no)
+    except ValueError:
+        was_locked_before = False
+
+    try:
         should_lock = result.get("reachable") and result["ai_analysis"]["threat_score"] >= 80
         if should_lock:
             bank_status = mock_bank_manager.lock_account(
@@ -267,6 +284,10 @@ async def analyze_sandbox(
 
         result.setdefault("b2c_actions", {}).setdefault("anti_transfer_lock", {})
         result["b2c_actions"]["anti_transfer_lock"]["locked"] = bank_status["locked"]
+        # True only when THIS request is what just triggered the lock — lets the
+        # frontend distinguish "newly locked just now" from "still locked from an
+        # earlier, unrelated check," instead of both looking identical.
+        result["b2c_actions"]["anti_transfer_lock"]["justLocked"] = bool(should_lock and not was_locked_before)
         result["b2c_actions"]["anti_transfer_lock"]["lock_duration_minutes"] = 30 if bank_status["locked"] else 0
         result["b2c_actions"]["anti_transfer_lock"]["message"] = (
             f"CRITICAL THREAT DETECTED: Demo Virtual Account Transfers Frozen for 30 Minutes"
@@ -495,4 +516,10 @@ async def websocket_global_broadcast(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # IMPORTANT: reload=False on purpose. uvicorn's --reload/StatReload
+    # supervisor overrides the Windows event loop policy we set at the top
+    # of this file, which breaks Playwright's ability to launch a browser
+    # subprocess (raises NotImplementedError deep inside Playwright). If
+    # you need auto-reload during development on Windows, restart the
+    # server manually after each change instead of using --reload.
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
