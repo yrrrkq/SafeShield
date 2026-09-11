@@ -3,7 +3,6 @@ import { OnChainDashboard } from './components/OnChainDashboard';
 import { ThreatDetailModal } from './components/ThreatDetailModal';
 import { MultiSigConsensusBar } from './components/MultiSigConsensusBar';
 import { AntiTransferLockerPage } from './components/AntiTransferLockerPage';
-import { SmartInsuranceClaimPage } from './components/SmartInsuranceClaimPage';
 import { ATTACK_PRESETS, INITIAL_NODES } from './data/presets';
 import { localBlockchain } from './services/mockBlockchain';
 import {
@@ -82,15 +81,20 @@ function normalizeAnalysis(apiResult) {
     justLocked: !!(apiResult.b2c_actions && apiResult.b2c_actions.anti_transfer_lock && apiResult.b2c_actions.anti_transfer_lock.justLocked),
     lockMessage: (apiResult.b2c_actions && apiResult.b2c_actions.anti_transfer_lock && apiResult.b2c_actions.anti_transfer_lock.message) || '',
     demoAccount: (apiResult.b2c_actions && apiResult.b2c_actions.anti_transfer_lock && apiResult.b2c_actions.anti_transfer_lock.demoAccount) || null,
-    insurance: (apiResult.b2c_actions && apiResult.b2c_actions.insurance_coverage) || null,
-    // Genuine info about whether Claude (LLM) actually produced the NLP
-    // score, or whether it fell back to keyword counting — never fabricated.
+    // Genuine info about whether Gemini (LLM) actually produced a full
+    // threat ANALYSIS (not just a label), or whether it fell back to
+    // keyword counting — never fabricated.
     aiClassifier: {
       used: !!aiClassifier.used,
       reasoning: aiClassifier.reasoning || null,
       confidence: aiClassifier.confidence ?? null,
       model: aiClassifier.model || null,
-      isPhishing: aiClassifier.isPhishing ?? null
+      isPhishing: aiClassifier.isPhishing ?? null,
+      phishingCategory: aiClassifier.phishingCategory || null,
+      impersonatedEntity: aiClassifier.impersonatedEntity || null,
+      socialEngineeringTactics: aiClassifier.socialEngineeringTactics || [],
+      technicalCorrelation: aiClassifier.technicalCorrelation || null,
+      recommendedAction: aiClassifier.recommendedAction || null
     }
   };
 }
@@ -124,11 +128,22 @@ function buildAiReasoningBullets(analysis) {
   if (!analysis || !analysis.reachable) return [];
   const bullets = [];
 
-  if (analysis.aiClassifier.used && analysis.aiClassifier.reasoning) {
-    bullets.push(`(Claude AI 판별) ${analysis.aiClassifier.reasoning}`);
+  if (analysis.aiClassifier.used) {
+    if (analysis.aiClassifier.impersonatedEntity) {
+      bullets.push(`(AI 분석) 사칭 대상으로 추정되는 기관/인물: ${analysis.aiClassifier.impersonatedEntity}`);
+    }
+    if (analysis.aiClassifier.socialEngineeringTactics.length > 0) {
+      bullets.push(`(AI 분석) 사용된 사회공학 기법: ${analysis.aiClassifier.socialEngineeringTactics.join(', ')}`);
+    }
+    if (analysis.aiClassifier.technicalCorrelation) {
+      bullets.push(`(AI 분석) 텍스트-기술적 증거 상관관계: ${analysis.aiClassifier.technicalCorrelation}`);
+    }
+    if (analysis.aiClassifier.reasoning) {
+      bullets.push(`(AI 종합 판단, 확신도 ${analysis.aiClassifier.confidence ?? '-'}%) ${analysis.aiClassifier.reasoning}`);
+    }
   }
   if (analysis.matchedKeywords.length > 0) {
-    bullets.push(`본문에서 스미싱 의심 키워드 발견: ${analysis.matchedKeywords.join(', ')}`);
+    bullets.push(`(키워드 매칭) 본문에서 스미싱 의심 키워드 발견: ${analysis.matchedKeywords.join(', ')}`);
   }
   if (analysis.redirectChain.length > 0) {
     bullets.push(`실제 접속 시 ${analysis.redirectChain.length}건의 HTTP 리다이렉트가 관찰됨`);
@@ -151,10 +166,10 @@ function buildAiReasoningBullets(analysis) {
 // =====================================================================
 function Sidebar({ activeTab, setActiveTab }) {
   const navItems = [
-    { id: 'dashboard', icon: '🏠', label: '대시보드', enabled: false },
-    { id: 'scenarios', icon: '📄', label: '시나리오 관리', enabled: false },
-    { id: 'sandbox', icon: '⟨⟩', label: '실시간 분석', enabled: true },
-    { id: 'settings', icon: '⚙️', label: '설정', enabled: false }
+    { id: 'sandbox', icon: '⟨⟩', label: '실시간 분석' },
+    { id: 'transfer-lock', icon: '🔒', label: '송금 일시정지 막기' },
+    { id: 'onchain-ledger', icon: '⛓️', label: 'Web3 온체인 원장' },
+    { id: 'settings', icon: '⚙️', label: '설정' }
   ];
   return (
     <aside className="w-60 shrink-0 bg-[#0f1729] text-slate-300 flex flex-col">
@@ -166,14 +181,11 @@ function Sidebar({ activeTab, setActiveTab }) {
         {navItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => item.enabled && setActiveTab('sandbox')}
-            title={item.enabled ? undefined : '준비 중인 메뉴입니다'}
+            onClick={() => setActiveTab(item.id)}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-              item.id === 'sandbox' && activeTab !== 'transfer-lock' && activeTab !== 'insurance-claim' && activeTab !== 'onchain-ledger'
+              activeTab === item.id
                 ? 'bg-blue-600 text-white'
-                : item.enabled
-                  ? 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  : 'text-slate-600 cursor-not-allowed'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
             }`}
           >
             <span>{item.icon}</span>
@@ -227,8 +239,7 @@ function StepBreadcrumb({ activeTab, setActiveTab }) {
   const steps = [
     { id: 'sandbox', num: 1, label: '스미싱/악성코드 실시간 분석' },
     { id: 'transfer-lock', num: 2, label: '송금 일시정지 막기' },
-    { id: 'insurance-claim', num: 3, label: '스마트 보험 청구' },
-    { id: 'onchain-ledger', num: 4, label: 'Web3 온체인 원장' }
+    { id: 'onchain-ledger', num: 3, label: 'Web3 온체인 원장' }
   ];
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -269,7 +280,6 @@ function ScenarioPanel({
   onTriggerAttack,
   isAnalyzing
 }) {
-  const [channel, setChannel] = useState('sms'); // 'sms' | 'call'
   const [showCustom, setShowCustom] = useState(true);
   const displaySms = customText || selectedPreset.smsText || '';
 
@@ -277,107 +287,84 @@ function ScenarioPanel({
     <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
       <h2 className="text-sm font-bold text-slate-900">시나리오 선택</h2>
 
-      <div className="flex bg-slate-100 rounded-lg p-1 text-xs font-medium">
-        <button
-          onClick={() => setChannel('sms')}
-          className={`flex-1 py-1.5 rounded-md transition ${channel === 'sms' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
-        >
-          ✉️ 문자 / 메시지
-        </button>
-        <button
-          onClick={() => setChannel('call')}
-          className={`flex-1 py-1.5 rounded-md transition ${channel === 'call' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
-        >
-          📞 전화
-        </button>
+      <div className="space-y-2">
+        {ATTACK_PRESETS.map((preset) => {
+          const active = !customUrl && !customText && selectedPreset.id === preset.id;
+          return (
+            <button
+              key={preset.id}
+              onClick={() => onSelectPreset(preset)}
+              className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg border transition ${
+                active ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <span className="text-lg">📩</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-medium text-slate-800 truncate">{preset.title || preset.threatType}</span>
+                <span className="block text-[11px] text-slate-400 truncate">{preset.category || preset.url}</span>
+              </span>
+              <span className="text-slate-300">›</span>
+            </button>
+          );
+        })}
       </div>
 
-      {channel === 'call' ? (
-        <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
-          보이스피싱(전화) 실시간 분석은 아직 준비 중입니다. 지금은 문자/URL 기반 분석만 실제로 동작합니다.
-        </div>
-      ) : (
-        <>
-          <div className="space-y-2">
-            {ATTACK_PRESETS.map((preset) => {
-              const active = !customUrl && !customText && selectedPreset.id === preset.id;
-              return (
-                <button
-                  key={preset.id}
-                  onClick={() => onSelectPreset(preset)}
-                  className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg border transition ${
-                    active ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <span className="text-lg">📩</span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium text-slate-800 truncate">{preset.title || preset.threatType}</span>
-                    <span className="block text-[11px] text-slate-400 truncate">{preset.category || preset.url}</span>
-                  </span>
-                  <span className="text-slate-300">›</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="border-t border-slate-200 pt-3">
-            <button
-              onClick={() => setShowCustom((v) => !v)}
-              className="text-xs text-blue-600 font-medium"
-            >
-              {showCustom ? '직접 입력 숨기기' : '직접 입력 (Custom)'}
-            </button>
-            {showCustom && (
-              <div className="mt-2 space-y-2">
-                <div>
-                  <label className="block text-[11px] text-slate-500 mb-1">Custom SMS Text</label>
-                  <input
-                    type="text"
-                    value={customText}
-                    onChange={(e) => setCustomText(e.target.value)}
-                    placeholder="[택배] 배송지 주소 불일치 확인..."
-                    className="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-500 mb-1">Malicious URL</label>
-                  <input
-                    type="text"
-                    value={customUrl}
-                    onChange={(e) => setCustomUrl(e.target.value)}
-                    placeholder="http://127.0.0.1:9100/police"
-                    className="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 font-mono"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Phone mockup */}
-          <div className="mx-auto w-full max-w-[260px] bg-slate-900 rounded-[28px] p-3 shadow-lg">
-            <div className="bg-white rounded-2xl overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-1.5 text-[10px] text-slate-500 bg-slate-50">
-                <span>12:45</span>
-                <span>📶 📡 🔋</span>
-              </div>
-              <div className="p-3 space-y-2">
-                <div className="text-[11px] text-slate-400">Unknown Sender</div>
-                <div className="bg-slate-100 rounded-xl rounded-tl-sm px-3 py-2 text-[11px] text-slate-700 leading-relaxed break-words">
-                  {displaySms || '메시지를 선택하거나 직접 입력해주세요.'}
-                </div>
-              </div>
+      <div className="border-t border-slate-200 pt-3">
+        <button
+          onClick={() => setShowCustom((v) => !v)}
+          className="text-xs text-blue-600 font-medium"
+        >
+          {showCustom ? '직접 입력 숨기기' : '직접 입력 (Custom)'}
+        </button>
+        {showCustom && (
+          <div className="mt-2 space-y-2">
+            <div>
+              <label className="block text-[11px] text-slate-500 mb-1">Custom SMS Text</label>
+              <input
+                type="text"
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                placeholder="[택배] 배송지 주소 불일치 확인..."
+                className="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-500 mb-1">Malicious URL</label>
+              <input
+                type="text"
+                value={customUrl}
+                onChange={(e) => setCustomUrl(e.target.value)}
+                placeholder="http://127.0.0.1:9100/police"
+                className="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 font-mono"
+              />
             </div>
           </div>
+        )}
+      </div>
 
-          <button
-            onClick={onTriggerAttack}
-            disabled={isAnalyzing}
-            className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold"
-          >
-            {isAnalyzing ? '분석 중...' : '🔍 실시간 분석 실행'}
-          </button>
-        </>
-      )}
+      {/* Phone mockup */}
+      <div className="mx-auto w-full max-w-[260px] bg-slate-900 rounded-[28px] p-3 shadow-lg">
+        <div className="bg-white rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-1.5 text-[10px] text-slate-500 bg-slate-50">
+            <span>12:45</span>
+            <span>📶 📡 🔋</span>
+          </div>
+          <div className="p-3 space-y-2">
+            <div className="text-[11px] text-slate-400">Unknown Sender</div>
+            <div className="bg-slate-100 rounded-xl rounded-tl-sm px-3 py-2 text-[11px] text-slate-700 leading-relaxed break-words">
+              {displaySms || '메시지를 선택하거나 직접 입력해주세요.'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button
+        onClick={onTriggerAttack}
+        disabled={isAnalyzing}
+        className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold"
+      >
+        {isAnalyzing ? '분석 중...' : '🔍 실시간 분석 실행'}
+      </button>
     </div>
   );
 }
@@ -453,6 +440,66 @@ function AnalysisResultPanel({ analysis, isAnalyzing, analysisTimestamp, logs, s
         </div>
       )}
 
+      {/* AI 위협 분석 리포트 — only rendered when Gemini actually produced a
+          real analysis (not the keyword fallback). Every field here is the
+          model's own output for THIS request, not a template. */}
+      {analysis.reachable && analysis.aiClassifier.used && (
+        <div className="bg-white rounded-xl border border-indigo-200 overflow-hidden">
+          <div className="bg-indigo-50 px-5 py-3 border-b border-indigo-100 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+              🤖 AI 위협 분석 리포트
+            </h3>
+            <span className="text-[11px] text-indigo-500">
+              {analysis.aiClassifier.model} · 확신도 {analysis.aiClassifier.confidence}%
+            </span>
+          </div>
+          <div className="px-5 py-4 space-y-3 text-sm">
+            <div className="flex flex-wrap gap-2">
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">
+                {analysis.aiClassifier.phishingCategory || '분류 미상'}
+              </span>
+              {analysis.aiClassifier.impersonatedEntity && (
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                  사칭 대상: {analysis.aiClassifier.impersonatedEntity}
+                </span>
+              )}
+            </div>
+
+            {analysis.aiClassifier.socialEngineeringTactics.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-slate-400 mb-1">사용된 사회공학 기법</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {analysis.aiClassifier.socialEngineeringTactics.map((t, i) => (
+                    <span key={i} className="text-[11px] px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {analysis.aiClassifier.technicalCorrelation && (
+              <div>
+                <div className="text-xs font-medium text-slate-400 mb-1">텍스트 ↔ 실제 기술적 증거 상관관계</div>
+                <p className="text-xs text-slate-600">{analysis.aiClassifier.technicalCorrelation}</p>
+              </div>
+            )}
+
+            <div>
+              <div className="text-xs font-medium text-slate-400 mb-1">종합 분석</div>
+              <p className="text-xs text-slate-600 leading-relaxed">{analysis.aiClassifier.reasoning}</p>
+            </div>
+
+            {analysis.aiClassifier.recommendedAction && (
+              <div className="bg-indigo-50 rounded-lg px-3 py-2">
+                <span className="text-xs font-semibold text-indigo-700">권고 조치: </span>
+                <span className="text-xs text-indigo-700">{analysis.aiClassifier.recommendedAction}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Result table */}
       <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
         <div className="px-5 py-3">
@@ -514,22 +561,20 @@ function AnalysisResultPanel({ analysis, isAnalyzing, analysisTimestamp, logs, s
       {/* Bottom info bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
         <InfoTile icon="🕐" label="분석 시간" value={analysisTimestamp || '-'} />
-        <InfoTile
-          icon="⏱️"
-          label="분석 모델"
-          value={analysis.aiClassifier.used ? `Claude AI (${analysis.aiClassifier.model})` : 'SafeShield Heuristic v1 (키워드 기반)'}
+        <InfoTile 
+          icon="⏱️" 
+          label="분석 모델" 
+          value={analysis.aiClassifier.used ? analysis.aiClassifier.model : 'Heuristic (키워드 기반)'} 
         />
-        <InfoTile
-          icon="📎"
-          label="추가 탐지 항목"
+        <InfoTile 
+          icon="📎" 
+          label="추가 탐지 항목" 
           value={
-            [
+            [ 
               analysis.breakdown.dynamic_behavior_score > 0 && '동적 행위',
               analysis.breakdown.static_permission_score > 0 && '위험 권한',
-              analysis.breakdown.nlp_context_score > 0 && (analysis.aiClassifier.used ? 'AI 문맥 분석' : '키워드 문맥'),
-            ]
-              .filter(Boolean)
-              .join(', ') || '없음'
+              analysis.breakdown.nlp_context_score > 0 && (analysis.aiClassifier.used ? 'AI 문맥 분석' : '키워드 문맥')
+            ].filter(Boolean).join(', ') || '없음'
           }
         />
       </div>
@@ -684,10 +729,92 @@ function MockBankPanel({
 }
 
 // =====================================================================
-// App
+// Settings page — real, functional content only (backend/account status
+// this app actually tracks), not placeholder text.
 // =====================================================================
+function SettingsPage({ isBackendOnline, mockAccount, onManualLock, onManualUnlock, isBankBusy }) {
+  return (
+    <div className="max-w-2xl space-y-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+        <h2 className="text-sm font-bold text-slate-900">백엔드 연결 상태</h2>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-500">FastAPI 백엔드 (localhost:8000)</span>
+          <span
+            className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border ${
+              isBackendOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isBackendOnline ? 'bg-emerald-500' : 'bg-red-500'}`} />
+            {isBackendOnline ? '연결됨' : '연결 안 됨'}
+          </span>
+        </div>
+        {!isBackendOnline && (
+          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
+            백엔드가 꺼져 있으면 실시간 분석·송금 락·온체인 원장이 모두 동작하지 않습니다.
+            터미널에서 <code className="font-mono">python -m uvicorn main:app --port 8000</code> 로 실행 중인지 확인해주세요.
+          </p>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+        <h2 className="text-sm font-bold text-slate-900">데모 가상계좌 (Mock Bank)</h2>
+        {!mockAccount ? (
+          <p className="text-xs text-slate-400">계좌 정보를 불러오는 중이거나 백엔드에 연결할 수 없습니다.</p>
+        ) : (
+          <>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500">{mockAccount.ownerName} ({mockAccount.accountNumber})</span>
+              <span className="font-mono text-slate-800">{Number(mockAccount.balance).toLocaleString()} {mockAccount.currency}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500">잠금 상태</span>
+              {mockAccount.locked ? (
+                <span className="px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-600 text-[11px] font-semibold">
+                  🔒 잠금 (약 {mockAccount.lockRemainingSeconds}초 남음)
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 text-[11px]">
+                  🔓 정상
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={onManualLock}
+                disabled={isBankBusy}
+                className="flex-1 px-2 py-1.5 rounded-lg border border-slate-200 text-slate-500 text-xs hover:border-red-300 hover:text-red-600 disabled:opacity-50"
+              >
+                강제 잠금 (테스트)
+              </button>
+              <button
+                onClick={onManualUnlock}
+                disabled={isBankBusy}
+                className="flex-1 px-2 py-1.5 rounded-lg border border-slate-200 text-slate-500 text-xs hover:border-emerald-300 hover:text-emerald-600 disabled:opacity-50"
+              >
+                즉시 잠금 해제
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              이 계좌는 실제 은행 계좌가 아니라, 데모용 가상 원장(mock_bank.py)입니다.
+            </p>
+          </>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-2">
+        <h2 className="text-sm font-bold text-slate-900">AI 위협 분석기</h2>
+        <p className="text-xs text-slate-500">
+          백엔드 환경변수 <code className="font-mono bg-slate-100 px-1 rounded">GEMINI_API_KEY</code>가
+          설정되어 있으면 Gemini 기반 AI 분석이, 없으면 키워드 기반 분석이 자동으로 사용됩니다.
+          현재 어떤 방식이 사용됐는지는 각 분석 결과 화면 하단의 "분석 모델" 항목에서 확인할 수 있습니다.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function App() {
-  const [activeTab, setActiveTab] = useState('sandbox'); // 'sandbox' | 'transfer-lock' | 'insurance-claim' | 'onchain-ledger'
+  const [activeTab, setActiveTab] = useState('sandbox'); // 'sandbox' | 'transfer-lock' | 'onchain-ledger' | 'settings'
   const [selectedPreset, setSelectedPreset] = useState(ATTACK_PRESETS[0]);
   const [customUrl, setCustomUrl] = useState('');
   const [customText, setCustomText] = useState('');
@@ -807,7 +934,11 @@ export function App() {
         addLog('ANALYSIS', `[+] 문맥 분석: ${analysis.threatType}`, 'SMS_TRIAGE');
 
         if (analysis.aiClassifier.used) {
-          addLog('ANALYSIS', `[🤖] Claude AI 판별 결과: ${analysis.aiClassifier.reasoning}`, 'AI_CLASSIFIER');
+          addLog(
+            'ANALYSIS',
+            `[🤖] AI 위협 분석: ${analysis.aiClassifier.phishingCategory || ''} · ${analysis.aiClassifier.reasoning}`,
+            'AI_CLASSIFIER'
+          );
         }
 
         if (analysis.apkDownloaded && analysis.sha256) {
@@ -937,7 +1068,7 @@ export function App() {
           <div className="flex flex-col gap-1">
             <h1 className="text-xl font-bold text-slate-900">실시간 분석</h1>
             <p className="text-sm text-slate-500">
-              의심스러운 문자, 전화, 웹 링크를 실제로 접속·분석하여 위험을 탐지합니다.
+              의심스러운 문자, 웹 링크를 실제로 접속·분석하여 위험을 탐지합니다.
             </p>
           </div>
 
@@ -946,24 +1077,24 @@ export function App() {
           {activeTab === 'sandbox' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               <section className="lg:col-span-5 xl:col-span-4">
-                <ScenarioPanel
-                  selectedPreset={selectedPreset}
-                  onSelectPreset={handleSelectPreset}
-                  customUrl={customUrl}
-                  setCustomUrl={setCustomUrl}
-                  customText={customText}
-                  setCustomText={setCustomText}
-                  onTriggerAttack={handleTriggerAttack}
-                  isAnalyzing={isAnalyzing}
+                <ScenarioPanel 
+                  customText={customText} 
+                  customUrl={customUrl} 
+                  isAnalyzing={isAnalyzing} 
+                  onSelectPreset={handleSelectPreset} 
+                  onTriggerAttack={handleTriggerAttack} 
+                  selectedPreset={selectedPreset} 
+                  setCustomText={setCustomText} 
+                  setCustomUrl={setCustomUrl} 
                 />
               </section>
               <section className="lg:col-span-7 xl:col-span-8">
-                <AnalysisResultPanel
-                  analysis={currentAnalysis}
-                  isAnalyzing={isAnalyzing}
-                  analysisTimestamp={analysisTimestamp}
-                  logs={logs}
-                  setActiveTab={setActiveTab}
+                <AnalysisResultPanel 
+                  analysis={currentAnalysis} 
+                  analysisTimestamp={analysisTimestamp} 
+                  isAnalyzing={isAnalyzing} 
+                  logs={logs} 
+                  setActiveTab={setActiveTab} 
                 />
               </section>
             </div>
@@ -972,38 +1103,51 @@ export function App() {
           {activeTab === 'transfer-lock' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               <div className="lg:col-span-8">
-                <AntiTransferLockerPage currentAnalysis={currentAnalysis} onNavigateToTab={(tab) => setActiveTab(tab)} />
+                <AntiTransferLockerPage 
+                  currentAnalysis={currentAnalysis} 
+                  onNavigateToTab={(tab) => setActiveTab(tab)} 
+                />
               </div>
               <div className="lg:col-span-4">
-                <MockBankPanel
-                  account={mockAccount}
-                  transferAmount={transferAmount}
-                  setTransferAmount={setTransferAmount}
-                  transferResult={transferResult}
-                  isTransferring={isTransferring}
-                  onAttemptTransfer={handleAttemptTransfer}
-                  onManualLock={handleManualLock}
-                  onManualUnlock={handleManualUnlock}
-                  isBankBusy={isBankBusy}
+                <MockBankPanel 
+                  account={mockAccount} 
+                  isBankBusy={isBankBusy} 
+                  isTransferring={isTransferring} 
+                  onAttemptTransfer={handleAttemptTransfer} 
+                  onManualLock={handleManualLock} 
+                  onManualUnlock={handleManualUnlock} 
+                  setTransferAmount={setTransferAmount} 
+                  transferAmount={transferAmount} 
+                  transferResult={transferResult} 
                 />
               </div>
             </div>
           )}
 
-          {activeTab === 'insurance-claim' && (
-            <SmartInsuranceClaimPage onNavigateToTab={(tab) => setActiveTab(tab)} />
-          )}
-
           {activeTab === 'onchain-ledger' && (
             <div className="space-y-4">
-              <MultiSigConsensusBar consensusState={consensusState} nodes={nodes} blockHeight={blockHeight} />
-              <OnChainDashboard
-                threats={threats}
-                nodes={nodes}
-                onEndorseThreat={handleEndorseThreat}
-                onInspectThreat={(threat) => setInspectedThreat(threat)}
+              <MultiSigConsensusBar 
+                blockHeight={blockHeight} 
+                consensusState={consensusState} 
+                nodes={nodes} 
+              />
+              <OnChainDashboard 
+                nodes={nodes} 
+                onEndorseThreat={handleEndorseThreat} 
+                onInspectThreat={(threat) => setInspectedThreat(threat)} 
+                threats={threats} 
               />
             </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <SettingsPage 
+              isBackendOnline={isBackendOnline} 
+              isBankBusy={isBankBusy} 
+              mockAccount={mockAccount} 
+              onManualLock={handleManualLock} 
+              onManualUnlock={handleManualUnlock} 
+            />
           )}
         </main>
 
@@ -1012,7 +1156,7 @@ export function App() {
         </footer>
       </div>
 
-      <ThreatDetailModal threat={inspectedThreat} onClose={() => setInspectedThreat(null)} />
+      <ThreatDetailModal onClose={() => setInspectedThreat(null)} threat={inspectedThreat} />
     </div>
   );
 }

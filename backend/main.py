@@ -6,7 +6,11 @@ from typing import Dict, List, Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+import os
+from dotenv import load_dotenv
 
+# 백엔드 실행 시 .env 파일 로드
+load_dotenv()
 # -----------------------------------------------------------------------
 # Windows + Playwright fix: on Windows, asyncio's default SelectorEventLoop
 # cannot spawn subprocesses (Playwright launches the browser as a real
@@ -248,7 +252,7 @@ async def analyze_sandbox(
     if not target:
         target = target_url
     if not target:
-        target = "http://police-cyber-bureau.kr/emergency_warrant.apk"
+        target = "[http://police-cyber-bureau.kr/emergency_warrant.apk](http://police-cyber-bureau.kr/emergency_warrant.apk)"
     if not account_no:
         account_no = account_number
     if not account_no:
@@ -421,7 +425,7 @@ async def websocket_sandbox_stream(websocket: WebSocket):
             
             action = data.get("action")
             if action == "analyze":
-                target_url = data.get("url", "http://malicious-node.xyz/update.apk")
+                target_url = data.get("url", "[http://malicious-node.xyz/update.apk](http://malicious-node.xyz/update.apk)")
                 sms_text = data.get("sms_text", "")
                 auto_propose = data.get("auto_propose", True)
                 auto_consensus = data.get("auto_consensus", True)

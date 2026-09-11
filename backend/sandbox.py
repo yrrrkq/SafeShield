@@ -301,22 +301,36 @@ class PlaywrightSandbox:
                 static_score += CRITICAL_PERMISSIONS[perm]["weight"]
         static_score = min(40, static_score)
 
-        # c) NLP Context Analysis (Max: 20 pts) — computed only from real page/SMS text.
-        # Prefer a genuine LLM (Claude) judgment when configured; otherwise fall
-        # back to keyword-based scoring. Either way, ai_classifier_info records
-        # which method actually produced the score, for transparency.
+        # c) NLP/AI Context Analysis (Max: 20 pts) — computed only from real page/SMS
+        # text. Prefer a genuine LLM (Claude) THREAT ANALYSIS — not just a
+        # classification — that reasons jointly over the real extracted text AND
+        # the real technical telemetry this sandbox just observed (redirects,
+        # downloaded-file permissions). Falls back to keyword-based scoring when
+        # the AI is unavailable. ai_classifier_info records which method actually
+        # produced the score and carries the full analysis report when available.
         keyword_nlp_score, matched_kw = evaluate_nlp_keywords(page_text_corpus)
         nlp_score = keyword_nlp_score
         ai_classifier_info = {"used": False, "reason": "NOT_ATTEMPTED"}
 
         try:
-            from ai_classifier import classify_phishing_text
-            ai_result = await classify_phishing_text(page_text_corpus, target_url)
+            from ai_classifier import analyze_phishing_threat
+            technical_signals = {
+                "redirect_count": len(redirect_chain),
+                "apk_downloaded": downloaded_bytes is not None,
+                "detected_permissions": detected_permissions,
+                "institution_cues_detected": fake_institution_detected,
+            }
+            ai_result = await analyze_phishing_threat(page_text_corpus, target_url, technical_signals)
             if ai_result.get("available"):
                 nlp_score = ai_result["risk_score"]
                 ai_classifier_info = {
                     "used": True,
                     "isPhishing": ai_result["is_phishing"],
+                    "phishingCategory": ai_result["phishing_category"],
+                    "impersonatedEntity": ai_result["impersonated_entity"],
+                    "socialEngineeringTactics": ai_result["social_engineering_tactics"],
+                    "technicalCorrelation": ai_result["technical_correlation"],
+                    "recommendedAction": ai_result["recommended_action"],
                     "confidence": ai_result["confidence"],
                     "reasoning": ai_result["reasoning"],
                     "model": ai_result["model"],
@@ -326,7 +340,7 @@ class PlaywrightSandbox:
         except ImportError:
             ai_classifier_info = {"used": False, "reason": "MODULE_NOT_FOUND"}
         except Exception as e:
-            logger.warning(f"AI classifier integration error, using keyword NLP score instead: {e}")
+            logger.warning(f"AI analyzer integration error, using keyword NLP score instead: {e}")
             ai_classifier_info = {"used": False, "reason": "ERROR", "error": str(e)}
 
         total_threat_score = min(100, dynamic_score + static_score + nlp_score)
