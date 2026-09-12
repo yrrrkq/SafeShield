@@ -1,74 +1,125 @@
-const hre = require("hardhat");
+// Hardhat Local Network에 ThreatRegistry 배포
+import hre from "hardhat";
+import readline from "readline";
+import fs from "fs";
+
+const { ethers } = await hre.network.connect("localhost");
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+function question(query) {
+  return new Promise((resolve) => rl.question(query, resolve));
+}
 
 async function main() {
-  console.log("==================================================");
-  console.log("🛡️  Deploying SafeShield Multi-Sig Threat Oracle...");
-  console.log("==================================================");
+  const signers = await ethers.getSigners();
 
-  const [deployer, nodeKISA, nodeAhnLab, nodePolice, nodeFSS] = await hre.ethers.getSigners();
-  console.log(`Deployer Account: ${deployer.address}`);
+  console.log("\n=================================");
+  console.log("Validator Account 설정");
+  console.log("=================================\n");
 
-  // Deploy SafeShieldOracle with threshold = 2 signatures
-  const SafeShieldOracle = await hre.ethers.getContractFactory("SafeShieldOracle");
-  const oracle = await SafeShieldOracle.deploy(2);
-  await oracle.waitForDeployment();
+  // Account #0은 Deployer / AI Backend용
+  console.log(`Account #0 : ${signers[0].address} [Deployer / AI Backend]`);
 
-  const oracleAddress = await oracle.getAddress();
-  console.log(`✅ SafeShieldOracle deployed to: ${oracleAddress}`);
-  console.log(`Required Signatures Threshold: 2\n`);
-
-  // Register Authorized Oracle Nodes
-  console.log("Registering Authorized Cybersecurity Nodes...");
-  const nodes = [
-    { address: nodeKISA ? nodeKISA.address : "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", name: "KISA (Korea Internet & Security Agency)" },
-    { address: nodeAhnLab ? nodeAhnLab.address : "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC", name: "AhnLab Cyber Threat Defense" },
-    { address: nodePolice ? nodePolice.address : "0x90F79bf6EB2c4f870365E785982E1f101E93b906", name: "National Police Agency Cyber Bureau" },
-    { address: nodeFSS ? nodeFSS.address : "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65", name: "FSS Financial Anti-Phishing Center" }
-  ];
-
-  for (const node of nodes) {
-    const tx = await oracle.addOracleNode(node.address, node.name);
-    await tx.wait();
-    console.log(`  ➕ Added Node: ${node.name} (${node.address})`);
+  // Validator로 선택 가능한 Account 출력
+  for (let i = 1; i < signers.length; i++) {
+    console.log(`Account #${i} : ${signers[i].address}`);
   }
 
-  // Pre-seed sample known smishing malware
-  console.log("\nPre-seeding Verified Zero-Day Smishing Hash on-chain...");
-  const sampleHash = hre.ethers.keccak256(hre.ethers.toUtf8Bytes("MALICIOUS_VOICE_PHISHING_APK_CJ_EXPRESS_v2.4"));
-  const sampleUrl = "http://fake-cj-delivery-check.com/track.apk";
-  const sampleType = "CJ Parcel Smishing (Trojan.Dropper)";
-  const sampleScore = 96;
-  const samplePermissions = [
-    "android.permission.READ_SMS",
-    "android.permission.RECEIVE_SMS",
-    "android.permission.CALL_PHONE",
-    "android.permission.RECORD_AUDIO",
-    "android.permission.SYSTEM_ALERT_WINDOW"
-  ];
+  console.log();
 
-  // Propose from Deployer / Node 1
-  let tx = await oracle.proposeThreat(
-    sampleHash,
-    sampleUrl,
-    sampleType,
-    sampleScore,
-    samplePermissions
+  const input = await question(
+    "Validator로 사용할 Account 번호를 입력하세요 (예: 1,2,3): "
   );
-  await tx.wait();
-  console.log(`  🚨 Proposed Threat: ${sampleHash.substring(0, 18)}...`);
 
-  // Endorse from Node 2 to achieve 2-of-2 consensus
-  if (nodeAhnLab) {
-    tx = await oracle.connect(nodeAhnLab).endorseThreat(sampleHash);
-    await tx.wait();
-    console.log(`  ✍️  Endorsed by AhnLab. Consensus reached! Status: isConfirmed = true`);
+  const accountNumbers = input
+    .split(",")
+    .map((num) => Number(num.trim()));
+
+  // 입력값 검증
+  if (
+    accountNumbers.length === 0 ||
+    accountNumbers.some(
+      (num) =>
+        !Number.isInteger(num) ||
+        num <= 0 ||
+        num >= signers.length
+    )
+  ) {
+    throw new Error("잘못된 Account 번호입니다.");
   }
 
-  console.log("\n🎉 Deployment & Pre-seeding completed successfully!");
-  console.log(`Save this contract address: ${oracleAddress}`);
+  // 중복 Account 방지
+  const uniqueAccountNumbers = [...new Set(accountNumbers)];
+
+  if (uniqueAccountNumbers.length !== accountNumbers.length) {
+    throw new Error("중복된 Account가 있습니다.");
+  }
+
+  const validatorAddresses = uniqueAccountNumbers.map(
+    (num) => signers[num].address
+  );
+
+  console.log("\n선택된 Validator:");
+
+  uniqueAccountNumbers.forEach((num) => {
+    console.log(`Account #${num} : ${signers[num].address}`);
+  });
+
+  // Account #0을 Deployer로 사용
+  const deployer = signers[0];
+
+  const ThreatRegistry = await ethers.getContractFactory(
+    "ThreatRegistry",
+    deployer
+  );
+
+  // 선택한 Validator 주소들을 Constructor에 전달
+  const threatRegistry = await ThreatRegistry.deploy(
+    validatorAddresses
+  );
+
+  await threatRegistry.waitForDeployment();
+
+  const contractAddress = await threatRegistry.getAddress();
+
+  // 과반수 임계값 확인
+  const threshold = await threatRegistry.threshold();
+
+  // 배포 정보를 deployment.json에 자동 저장
+  const deploymentInfo = {
+    contractAddress: contractAddress,
+    validatorCount: validatorAddresses.length,
+    threshold: Number(threshold),
+    validators: uniqueAccountNumbers.map((num) => ({
+      accountNumber: num,
+      address: signers[num].address,
+    })),
+  };
+
+  fs.writeFileSync(
+    "./deployment.json",
+    JSON.stringify(deploymentInfo, null, 2)
+  );
+
+  console.log("\n=================================");
+  console.log("ThreatRegistry deployed!");
+  console.log("=================================");
+
+  console.log("Contract address:", contractAddress);
+  console.log("Validator count:", validatorAddresses.length);
+  console.log("Majority threshold:", threshold.toString());
+
+  console.log("\n배포 정보가 deployment.json에 저장되었습니다.");
+
+  rl.close();
 }
 
 main().catch((error) => {
   console.error(error);
+  rl.close();
   process.exitCode = 1;
 });
