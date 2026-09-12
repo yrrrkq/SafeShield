@@ -1,5 +1,6 @@
 node_modules/
 .env
+<<<<<<< HEAD
 
 # AI / Backend
 dist/
@@ -15,3 +16,7 @@ deployment.json
 
 # macOS
 .DS_Store
+=======
+dist/
+build/
+>>>>>>> ai모델수정

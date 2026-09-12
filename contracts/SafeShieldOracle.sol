@@ -141,11 +141,7 @@ contract SafeShieldOracle {
         report.url = _url;
         report.threatType = _threatType;
         report.threatScore = _threatScore;
-
-        for (uint256 i = 0; i < _permissions.length; i++) {
-            report.detectedPermissions.push(_permissions[i]);
-        }
-
+report.detectedPermissions = _permissions;
         report.proposer = msg.sender;
         report.proposedAt = block.timestamp;
         report.isConfirmed = false;

@@ -83,14 +83,20 @@ function normalizeAnalysis(apiResult) {
     lockMessage: (apiResult.b2c_actions && apiResult.b2c_actions.anti_transfer_lock && apiResult.b2c_actions.anti_transfer_lock.message) || '',
     demoAccount: (apiResult.b2c_actions && apiResult.b2c_actions.anti_transfer_lock && apiResult.b2c_actions.anti_transfer_lock.demoAccount) || null,
     insurance: (apiResult.b2c_actions && apiResult.b2c_actions.insurance_coverage) || null,
-    // Genuine info about whether Claude (LLM) actually produced the NLP
-    // score, or whether it fell back to keyword counting — never fabricated.
+    // Genuine info about whether Gemini (LLM) actually produced a full
+    // threat ANALYSIS (not just a label), or whether it fell back to
+    // keyword counting — never fabricated.
     aiClassifier: {
       used: !!aiClassifier.used,
       reasoning: aiClassifier.reasoning || null,
       confidence: aiClassifier.confidence ?? null,
       model: aiClassifier.model || null,
-      isPhishing: aiClassifier.isPhishing ?? null
+      isPhishing: aiClassifier.isPhishing ?? null,
+      phishingCategory: aiClassifier.phishingCategory || null,
+      impersonatedEntity: aiClassifier.impersonatedEntity || null,
+      socialEngineeringTactics: aiClassifier.socialEngineeringTactics || [],
+      technicalCorrelation: aiClassifier.technicalCorrelation || null,
+      recommendedAction: aiClassifier.recommendedAction || null
     }
   };
 }
@@ -124,11 +130,22 @@ function buildAiReasoningBullets(analysis) {
   if (!analysis || !analysis.reachable) return [];
   const bullets = [];
 
-  if (analysis.aiClassifier.used && analysis.aiClassifier.reasoning) {
-    bullets.push(`(Claude AI 판별) ${analysis.aiClassifier.reasoning}`);
+  if (analysis.aiClassifier.used) {
+    if (analysis.aiClassifier.impersonatedEntity) {
+      bullets.push(`(AI 분석) 사칭 대상으로 추정되는 기관/인물: ${analysis.aiClassifier.impersonatedEntity}`);
+    }
+    if (analysis.aiClassifier.socialEngineeringTactics.length > 0) {
+      bullets.push(`(AI 분석) 사용된 사회공학 기법: ${analysis.aiClassifier.socialEngineeringTactics.join(', ')}`);
+    }
+    if (analysis.aiClassifier.technicalCorrelation) {
+      bullets.push(`(AI 분석) 텍스트-기술적 증거 상관관계: ${analysis.aiClassifier.technicalCorrelation}`);
+    }
+    if (analysis.aiClassifier.reasoning) {
+      bullets.push(`(AI 종합 판단, 확신도 ${analysis.aiClassifier.confidence ?? '-'}%) ${analysis.aiClassifier.reasoning}`);
+    }
   }
   if (analysis.matchedKeywords.length > 0) {
-    bullets.push(`본문에서 스미싱 의심 키워드 발견: ${analysis.matchedKeywords.join(', ')}`);
+    bullets.push(`(키워드 매칭) 본문에서 스미싱 의심 키워드 발견: ${analysis.matchedKeywords.join(', ')}`);
   }
   if (analysis.redirectChain.length > 0) {
     bullets.push(`실제 접속 시 ${analysis.redirectChain.length}건의 HTTP 리다이렉트가 관찰됨`);
@@ -151,9 +168,10 @@ function buildAiReasoningBullets(analysis) {
 // =====================================================================
 function Sidebar({ activeTab, setActiveTab }) {
   const navItems = [
-    { id: 'dashboard', icon: '🏠', label: '대시보드', enabled: false },
-    { id: 'scenarios', icon: '📄', label: '시나리오 관리', enabled: false },
     { id: 'sandbox', icon: '⟨⟩', label: '실시간 분석', enabled: true },
+    { id: 'transfer-lock', icon: '🔒', label: '송금 일시정지 막기', enabled: true },
+    { id: 'insurance-claim', icon: '📄', label: '스마트 보험 청구', enabled: true },
+    { id: 'onchain-ledger', icon: '⛓️', label: 'Web3 온체인 원장', enabled: true },
     { id: 'settings', icon: '⚙️', label: '설정', enabled: false }
   ];
   return (
@@ -166,10 +184,10 @@ function Sidebar({ activeTab, setActiveTab }) {
         {navItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => item.enabled && setActiveTab('sandbox')}
+            onClick={() => item.enabled && setActiveTab(item.id)}
             title={item.enabled ? undefined : '준비 중인 메뉴입니다'}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-              item.id === 'sandbox' && activeTab !== 'transfer-lock' && activeTab !== 'insurance-claim' && activeTab !== 'onchain-ledger'
+              activeTab === item.id
                 ? 'bg-blue-600 text-white'
                 : item.enabled
                   ? 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -453,6 +471,66 @@ function AnalysisResultPanel({ analysis, isAnalyzing, analysisTimestamp, logs, s
         </div>
       )}
 
+      {/* AI 위협 분석 리포트 — only rendered when Gemini actually produced a
+          real analysis (not the keyword fallback). Every field here is the
+          model's own output for THIS request, not a template. */}
+      {analysis.reachable && analysis.aiClassifier.used && (
+        <div className="bg-white rounded-xl border border-indigo-200 overflow-hidden">
+          <div className="bg-indigo-50 px-5 py-3 border-b border-indigo-100 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+              🤖 AI 위협 분석 리포트
+            </h3>
+            <span className="text-[11px] text-indigo-500">
+              {analysis.aiClassifier.model} · 확신도 {analysis.aiClassifier.confidence}%
+            </span>
+          </div>
+          <div className="px-5 py-4 space-y-3 text-sm">
+            <div className="flex flex-wrap gap-2">
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">
+                {analysis.aiClassifier.phishingCategory || '분류 미상'}
+              </span>
+              {analysis.aiClassifier.impersonatedEntity && (
+                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                  사칭 대상: {analysis.aiClassifier.impersonatedEntity}
+                </span>
+              )}
+            </div>
+
+            {analysis.aiClassifier.socialEngineeringTactics.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-slate-400 mb-1">사용된 사회공학 기법</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {analysis.aiClassifier.socialEngineeringTactics.map((t, i) => (
+                    <span key={i} className="text-[11px] px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {analysis.aiClassifier.technicalCorrelation && (
+              <div>
+                <div className="text-xs font-medium text-slate-400 mb-1">텍스트 ↔ 실제 기술적 증거 상관관계</div>
+                <p className="text-xs text-slate-600">{analysis.aiClassifier.technicalCorrelation}</p>
+              </div>
+            )}
+
+            <div>
+              <div className="text-xs font-medium text-slate-400 mb-1">종합 분석</div>
+              <p className="text-xs text-slate-600 leading-relaxed">{analysis.aiClassifier.reasoning}</p>
+            </div>
+
+            {analysis.aiClassifier.recommendedAction && (
+              <div className="bg-indigo-50 rounded-lg px-3 py-2">
+                <span className="text-xs font-semibold text-indigo-700">권고 조치: </span>
+                <span className="text-xs text-indigo-700">{analysis.aiClassifier.recommendedAction}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Result table */}
       <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
         <div className="px-5 py-3">
@@ -514,506 +592,23 @@ function AnalysisResultPanel({ analysis, isAnalyzing, analysisTimestamp, logs, s
       {/* Bottom info bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
         <InfoTile icon="🕐" label="분석 시간" value={analysisTimestamp || '-'} />
-        <InfoTile
-          icon="⏱️"
-          label="분석 모델"
-          value={analysis.aiClassifier.used ? `Claude AI (${analysis.aiClassifier.model})` : 'SafeShield Heuristic v1 (키워드 기반)'}
+        <InfoTile 
+          icon="⏱️" 
+          label="분석 모델" 
+          value={analysis.aiClassifier.used ? analysis.aiClassifier.model : 'SafeShield Heuristic v1 (키워드 기반)'} 
         />
-        <InfoTile
-          icon="📎"
-          label="추가 탐지 항목"
+        <InfoTile 
+          icon="📎" 
+          label="추가 탐지 항목" 
           value={
-            [
+            [ 
               analysis.breakdown.dynamic_behavior_score > 0 && '동적 행위',
               analysis.breakdown.static_permission_score > 0 && '위험 권한',
-              analysis.breakdown.nlp_context_score > 0 && (analysis.aiClassifier.used ? 'AI 문맥 분석' : '키워드 문맥'),
-            ]
-              .filter(Boolean)
-              .join(', ') || '없음'
+              analysis.breakdown.nlp_context_score > 0 && (analysis.aiClassifier.used ? 'AI 문맥 분석' : '키워드 문맥')
+            ].filter(Boolean).join(', ') || '없음'
           }
         />
       </div>
 
       {/* Real step-by-step log, collapsible */}
-      {logs.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200">
-          <button
-            onClick={() => setShowLogs((v) => !v)}
-            className="w-full flex items-center justify-between px-5 py-3 text-xs font-semibold text-slate-600"
-          >
-            <span>🔍 상세 분석 로그 보기 ({logs.length}개 이벤트)</span>
-            <span>{showLogs ? '▲' : '▼'}</span>
-          </button>
-          {showLogs && (
-            <div className="px-5 pb-4 space-y-1 max-h-64 overflow-y-auto font-mono text-[11px]">
-              {logs.map((log, i) => (
-                <div key={i} className="text-slate-500">
-                  <span className="text-slate-400">{log.timestamp}</span>{' '}
-                  <span className="text-slate-400">[{log.level}]</span> {log.message}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ResultRow({ icon, label, children }) {
-  return (
-    <div className="px-5 py-3 flex items-start gap-4">
-      <div className="w-28 shrink-0 flex items-center gap-2 text-xs font-medium text-slate-500 pt-0.5">
-        <span>{icon}</span>
-        {label}
-      </div>
-      <div className="flex-1 flex items-center flex-wrap gap-2">{children}</div>
-    </div>
-  );
-}
-
-function InfoTile({ icon, label, value }) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3">
-      <span className="text-base">{icon}</span>
-      <div className="min-w-0">
-        <div className="text-slate-400">{label}</div>
-        <div className="text-slate-700 font-medium truncate">{value}</div>
-      </div>
-    </div>
-  );
-}
-
-// =====================================================================
-// Mock Bank panel (used on the "송금 일시정지 막기" step)
-// =====================================================================
-function MockBankPanel({
-  account,
-  transferAmount,
-  setTransferAmount,
-  transferResult,
-  isTransferring,
-  onAttemptTransfer,
-  onManualLock,
-  onManualUnlock,
-  isBankBusy
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 text-sm">
-      <div className="flex items-center justify-between">
-        <span className="text-slate-900 font-bold">🏦 데모 가상계좌 (Mock Bank)</span>
-        <span className="text-[10px] text-slate-400 border border-slate-200 rounded px-1.5 py-0.5">실제 은행 아님 · 데모 전용</span>
-      </div>
-
-      {!account ? (
-        <div className="text-slate-400 text-xs">계좌 정보를 불러오는 중...</div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">{account.ownerName}</span>
-            <span className="font-mono text-slate-800">{Number(account.balance).toLocaleString()} {account.currency}</span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">계좌 상태</span>
-            {account.locked ? (
-              <span className="px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-600 text-[11px] font-semibold">
-                🔒 잠금 (약 {account.lockRemainingSeconds}초 남음)
-              </span>
-            ) : (
-              <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 text-[11px]">
-                🔓 정상 (이체 가능)
-              </span>
-            )}
-          </div>
-          {account.locked && account.lockReason && (
-            <div className="text-[11px] text-slate-400 break-words">사유: {account.lockReason}</div>
-          )}
-
-          <div className="border-t border-slate-100 pt-3 space-y-2">
-            <div className="text-slate-500 text-xs">이 가상계좌 → 사기범 가상계좌로 송금 시도해보기</div>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                min={1}
-                value={transferAmount}
-                onChange={(e) => setTransferAmount(e.target.value)}
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 text-xs"
-              />
-              <button
-                onClick={onAttemptTransfer}
-                disabled={isTransferring}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-xs font-medium text-white"
-              >
-                {isTransferring ? '전송 중...' : '송금 시도'}
-              </button>
-            </div>
-          </div>
-
-          {transferResult && (
-            <div
-              className={`rounded-lg p-2 text-[11px] border ${
-                transferResult.success ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'
-              }`}
-            >
-              {transferResult.success ? '✅ ' : '⛔ '}
-              {transferResult.message}
-            </div>
-          )}
-
-          <div className="border-t border-slate-100 pt-3 flex gap-2">
-            <button
-              onClick={onManualLock}
-              disabled={isBankBusy}
-              className="flex-1 px-2 py-1.5 rounded-lg border border-slate-200 text-slate-500 text-[11px] hover:border-red-300 hover:text-red-600 disabled:opacity-50"
-            >
-              테스트: 강제 잠금
-            </button>
-            <button
-              onClick={onManualUnlock}
-              disabled={isBankBusy}
-              className="flex-1 px-2 py-1.5 rounded-lg border border-slate-200 text-slate-500 text-[11px] hover:border-emerald-300 hover:text-emerald-600 disabled:opacity-50"
-            >
-              테스트: 강제 해제
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// =====================================================================
-// App
-// =====================================================================
-export function App() {
-  const [activeTab, setActiveTab] = useState('sandbox'); // 'sandbox' | 'transfer-lock' | 'insurance-claim' | 'onchain-ledger'
-  const [selectedPreset, setSelectedPreset] = useState(ATTACK_PRESETS[0]);
-  const [customUrl, setCustomUrl] = useState('');
-  const [customText, setCustomText] = useState('');
-
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [logs, setLogs] = useState([]);
-  const [currentAnalysis, setCurrentAnalysis] = useState(null);
-  const [analysisTimestamp, setAnalysisTimestamp] = useState(null);
-  const [consensusState, setConsensusState] = useState(null);
-  const [nodes] = useState(INITIAL_NODES);
-  const [threats, setThreats] = useState(localBlockchain.getThreats());
-
-  const [inspectedThreat, setInspectedThreat] = useState(null);
-  const [blockedHash, setBlockedHash] = useState(null);
-  const [blockHeight, setBlockHeight] = useState(localBlockchain.blockHeight);
-  const [isBackendOnline, setIsBackendOnline] = useState(false);
-
-  // --- Mock Bank (demo virtual account) state ---
-  const [mockAccount, setMockAccount] = useState(null);
-  const [transferAmount, setTransferAmount] = useState(500000);
-  const [transferResult, setTransferResult] = useState(null);
-  const [isTransferring, setIsTransferring] = useState(false);
-  const [isBankBusy, setIsBankBusy] = useState(false);
-
-  // Sync with local blockchain events (used by the on-chain ledger tab)
-  useEffect(() => {
-    const unsubscribe = localBlockchain.subscribe(({ event, data }) => {
-      setThreats(localBlockchain.getThreats());
-      setBlockHeight(localBlockchain.blockHeight);
-      if (event === 'ThreatEndorsed') {
-        setConsensusState((prev) => (prev ? { ...prev, approvalCount: data.approvalCount } : null));
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Real backend connectivity check
-  useEffect(() => {
-    let cancelled = false;
-    const check = async () => {
-      const online = await checkBackendHealth();
-      if (!cancelled) setIsBackendOnline(online);
-    };
-    check();
-    const interval = setInterval(check, 10000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
-
-  // Load the demo virtual account's real status on mount
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const acc = await fetchMockBankAccount(DEMO_VICTIM_ACCOUNT);
-      if (!cancelled && acc) setMockAccount(acc);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // While the demo account is locked, poll so the countdown stays real
-  useEffect(() => {
-    if (!mockAccount || !mockAccount.locked) return;
-    const interval = setInterval(async () => {
-      const acc = await fetchMockBankAccount(DEMO_VICTIM_ACCOUNT);
-      if (acc) setMockAccount(acc);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [mockAccount?.locked]);
-
-  const handleSelectPreset = (preset) => {
-    setSelectedPreset(preset);
-    setCustomUrl('');
-    setCustomText('');
-    const existing = threats.find((t) => t.url === preset.url && t.isConfirmed);
-    setBlockedHash(existing ? existing.apkHash : null);
-  };
-
-  const addLog = useCallback((level, message, stage = 'INFO') => {
-    const time = new Date().toTimeString().split(' ')[0];
-    setLogs((prev) => [...prev, { level, message, stage, timestamp: time }]);
-  }, []);
-
-  // Trigger REAL Sandbox Analysis (calls the backend's Playwright-based
-  // /api/sandbox/analyze endpoint — no client-side fake simulation).
-  const handleTriggerAttack = useCallback(async () => {
-    if (isAnalyzing) return;
-
-    const targetUrl = (customUrl || selectedPreset.url || '').trim();
-    const targetSms = customText || selectedPreset.smsText || '';
-
-    setIsAnalyzing(true);
-    setBlockedHash(null);
-    setLogs([]);
-    setCurrentAnalysis(null);
-    setConsensusState(null);
-
-    if (!targetUrl) {
-      addLog('ERROR', '[!] 분석할 URL을 입력해주세요.', 'INPUT_ERROR');
-      setIsAnalyzing(false);
-      return;
-    }
-
-    addLog('INFO', `[*] SafeShield 스미싱/악성코드 실시간 분석 요청 전송: ${targetUrl}`, 'REQUEST');
-
-    try {
-      const apiResult = await analyzeUrl(targetUrl, targetSms);
-      const analysis = normalizeAnalysis(apiResult);
-
-      if (!analysis.reachable) {
-        addLog('ERROR', `[!] 대상에 접속할 수 없습니다: ${analysis.errorDetail || '도메인 접속 불가 / 존재하지 않는 URL'}`, 'SANDBOX');
-      } else {
-        addLog('SANDBOX', `[+] 실제 페이지 접속 성공 (리다이렉트 ${analysis.redirectChain.length}건)`, 'SANDBOX');
-        addLog('ANALYSIS', `[+] 문맥 분석: ${analysis.threatType}`, 'SMS_TRIAGE');
-
-        if (analysis.aiClassifier.used) {
-          addLog('ANALYSIS', `[🤖] Claude AI 판별 결과: ${analysis.aiClassifier.reasoning}`, 'AI_CLASSIFIER');
-        }
-
-        if (analysis.apkDownloaded && analysis.sha256) {
-          addLog('CRYPTO', `[+] 실제 APK 페이로드 다운로드 및 SHA-256 해시 추출 완료: ${analysis.sha256}`, 'APK_INTERCEPT');
-        } else {
-          addLog('INFO', '[-] 이 페이지에서는 APK 파일이 다운로드되지 않았습니다 (정적 권한 점수 0점).', 'APK_INTERCEPT');
-        }
-
-        if (analysis.permissions.length > 0) {
-          analysis.permissions.forEach((p) => {
-            addLog('WARNING', `    ├── [위험 권한] ${p.permission} -> ${p.name} (${p.danger})`, 'DECOMPILER');
-          });
-        } else {
-          addLog('INFO', '[-] 탐지된 위험 권한 없음.', 'DECOMPILER');
-        }
-      }
-
-      addLog(
-        analysis.riskScore >= 80 ? 'CRITICAL' : analysis.riskScore >= 50 ? 'ALERT' : 'INFO',
-        `[결과] AI 위협 점수: ${analysis.riskScore}/100 | 신뢰도: ${analysis.confidenceLevel} | 판정: ${analysis.verdict}`,
-        'RISK_EVALUATION'
-      );
-
-      if (analysis.locked) {
-        if (analysis.justLocked) {
-          addLog('BLOCKCHAIN', '[🔒] 이번 탐지로 계좌가 새로 잠금 처리되었습니다 (30분)', 'B2C_ACTION');
-
-          addLog('INFO', '[*] 잠긴 계좌에서 사기범 계좌로 실제 송금 테스트를 시도합니다...', 'B2C_ACTION');
-          try {
-            const demoTransfer = await attemptMockTransfer(
-              DEMO_VICTIM_ACCOUNT,
-              DEMO_SCAM_ACCOUNT,
-              Number(transferAmount) || 100000
-            );
-            setTransferResult(demoTransfer);
-            if (demoTransfer.account) setMockAccount(demoTransfer.account);
-            if (demoTransfer.success) {
-              addLog('WARNING', `[!] 예상과 다르게 송금이 완료되었습니다: ${demoTransfer.message}`, 'B2C_ACTION');
-            } else {
-              addLog('CRITICAL', `[⛔] 송금 시도가 실제로 차단되었습니다: ${demoTransfer.message}`, 'B2C_ACTION');
-            }
-          } catch (transferErr) {
-            addLog('ERROR', `[!] 송금 차단 테스트 요청 실패: ${transferErr.message}`, 'B2C_ACTION');
-          }
-        } else {
-          const remaining = analysis.demoAccount ? analysis.demoAccount.lockRemainingSeconds : null;
-          addLog(
-            'INFO',
-            `[ℹ] 계좌가 이전 탐지로 인해 여전히 잠금 상태입니다 (이번 검사와는 무관${remaining != null ? `, 약 ${remaining}초 남음` : ''})`,
-            'B2C_ACTION'
-          );
-        }
-      } else {
-        addLog('INFO', '[✓] 스마트 안티 송금 락 미작동 (안전)', 'B2C_ACTION');
-      }
-
-      setCurrentAnalysis(analysis);
-      setAnalysisTimestamp(new Date().toLocaleString('ko-KR'));
-      setBlockedHash(analysis.sha256 && analysis.locked ? analysis.sha256 : null);
-
-      if (analysis.demoAccount) {
-        setMockAccount(analysis.demoAccount);
-      }
-    } catch (err) {
-      addLog('ERROR', `[!] 백엔드 연결 실패 또는 분석 오류: ${err.message}`, 'ERROR');
-      setCurrentAnalysis(null);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [isAnalyzing, customUrl, customText, selectedPreset, addLog, transferAmount]);
-
-  const handleAttemptTransfer = useCallback(async () => {
-    setIsTransferring(true);
-    setTransferResult(null);
-    try {
-      const amount = Number(transferAmount);
-      const result = await attemptMockTransfer(DEMO_VICTIM_ACCOUNT, DEMO_SCAM_ACCOUNT, amount);
-      setTransferResult(result);
-      if (result.account) setMockAccount(result.account);
-    } catch (err) {
-      setTransferResult({ success: false, message: `백엔드 연결 실패: ${err.message}` });
-    } finally {
-      setIsTransferring(false);
-    }
-  }, [transferAmount]);
-
-  const handleManualLock = useCallback(async () => {
-    setIsBankBusy(true);
-    try {
-      const acc = await lockMockAccount(DEMO_VICTIM_ACCOUNT, 30, '수동 테스트 잠금 (데모 UI)');
-      if (acc) {
-        setMockAccount(acc);
-        setTransferResult(null);
-      }
-    } finally {
-      setIsBankBusy(false);
-    }
-  }, []);
-
-  const handleManualUnlock = useCallback(async () => {
-    setIsBankBusy(true);
-    try {
-      const acc = await unlockMockAccount(DEMO_VICTIM_ACCOUNT);
-      if (acc) {
-        setMockAccount(acc);
-        setTransferResult(null);
-      }
-    } finally {
-      setIsBankBusy(false);
-    }
-  }, []);
-
-  const handleEndorseThreat = (apkHash, nodeAddress) => {
-    const updated = localBlockchain.endorseThreat(apkHash, nodeAddress || INITIAL_NODES[1].address);
-    setThreats(localBlockchain.getThreats());
-    if (updated) setConsensusState(updated);
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex font-sans">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-
-      <div className="flex-1 flex flex-col min-w-0">
-        <TopHeader isBackendOnline={isBackendOnline} />
-
-        <main className="flex-1 overflow-y-auto p-6 space-y-5">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-xl font-bold text-slate-900">실시간 분석</h1>
-            <p className="text-sm text-slate-500">
-              의심스러운 문자, 전화, 웹 링크를 실제로 접속·분석하여 위험을 탐지합니다.
-            </p>
-          </div>
-
-          <StepBreadcrumb activeTab={activeTab} setActiveTab={setActiveTab} />
-
-          {activeTab === 'sandbox' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              <section className="lg:col-span-5 xl:col-span-4">
-                <ScenarioPanel
-                  selectedPreset={selectedPreset}
-                  onSelectPreset={handleSelectPreset}
-                  customUrl={customUrl}
-                  setCustomUrl={setCustomUrl}
-                  customText={customText}
-                  setCustomText={setCustomText}
-                  onTriggerAttack={handleTriggerAttack}
-                  isAnalyzing={isAnalyzing}
-                />
-              </section>
-              <section className="lg:col-span-7 xl:col-span-8">
-                <AnalysisResultPanel
-                  analysis={currentAnalysis}
-                  isAnalyzing={isAnalyzing}
-                  analysisTimestamp={analysisTimestamp}
-                  logs={logs}
-                  setActiveTab={setActiveTab}
-                />
-              </section>
-            </div>
-          )}
-
-          {activeTab === 'transfer-lock' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              <div className="lg:col-span-8">
-                <AntiTransferLockerPage currentAnalysis={currentAnalysis} onNavigateToTab={(tab) => setActiveTab(tab)} />
-              </div>
-              <div className="lg:col-span-4">
-                <MockBankPanel
-                  account={mockAccount}
-                  transferAmount={transferAmount}
-                  setTransferAmount={setTransferAmount}
-                  transferResult={transferResult}
-                  isTransferring={isTransferring}
-                  onAttemptTransfer={handleAttemptTransfer}
-                  onManualLock={handleManualLock}
-                  onManualUnlock={handleManualUnlock}
-                  isBankBusy={isBankBusy}
-                />
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'insurance-claim' && (
-            <SmartInsuranceClaimPage onNavigateToTab={(tab) => setActiveTab(tab)} />
-          )}
-
-          {activeTab === 'onchain-ledger' && (
-            <div className="space-y-4">
-              <MultiSigConsensusBar consensusState={consensusState} nodes={nodes} blockHeight={blockHeight} />
-              <OnChainDashboard
-                threats={threats}
-                nodes={nodes}
-                onEndorseThreat={handleEndorseThreat}
-                onInspectThreat={(threat) => setInspectedThreat(threat)}
-              />
-            </div>
-          )}
-        </main>
-
-        <footer className="border-t border-slate-200 bg-white py-2 px-6 text-center text-[11px] text-slate-400">
-          SafeShield 탈중앙화 사이버 보안 방어 시스템 • Solidity 멀티시그 오라클, Playwright AI 샌드박스 & FastAPI 기반
-        </footer>
-      </div>
-
-      <ThreatDetailModal threat={inspectedThreat} onClose={() => setInspectedThreat(null)} />
-    </div>
-  );
-}
-export default App;
+      {l

@@ -6,41 +6,6 @@ SafeShield는 의심 URL을 **AI Sandbox로 분석**하고, 탐지된 위협 정
 
 기존의 기관별 분산된 위협 정보 공유 구조를 넘어, AI가 탐지한 위협을 여러 검증 주체가 확인하고 그 결과를 온체인에 기록하여 **신뢰 가능한 Threat Intelligence를 빠르게 공유하는 것**을 목표로 합니다.
 
----
-
-## 1. System Architecture
-
-```text
-[SMS / URL 입력]
-       ↓
-[AI Sandbox]
- ├─ Playwright 동적 분석
- ├─ APK 정적 분석
- └─ Gemini AI 문맥 분석
-       ↓
-[Hybrid Risk Score]
-       ↓
-[Threat Report]
-       ↓
-[ThreatRegistry]
-       ↓
-     PENDING
-       ↓
-[Validator 검증]
- APPROVE / REJECT
-       ↓
-[Majority Threshold]
-   ↙           ↘
-CONFIRMED    REJECTED
-   ↓
-ThreatConfirmed Event
-   ↓
-Event Listener
-   ↓
-Backend / Client / Threat Feed
-```
-
----
 
 ## 2. AI Sandbox
 

@@ -6,6 +6,11 @@ from typing import Dict, List, Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+import os
+from dotenv import load_dotenv
+
+# 백엔드 실행 시 .env 파일 로드
+load_dotenv()
 
 # -----------------------------------------------------------------------
 # Windows + Playwright fix: on Windows, asyncio's default SelectorEventLoop
