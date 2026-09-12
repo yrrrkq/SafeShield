@@ -1,4 +1,17 @@
 node_modules/
 .env
+
+# AI / Backend
 dist/
 build/
+
+# Hardhat
+artifacts/
+cache/
+coverage/
+
+# Local deployment
+deployment.json
+
+# macOS
+.DS_Store
