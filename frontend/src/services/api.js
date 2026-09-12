@@ -30,7 +30,7 @@ export async function fetchThreats(status = "all") {
   } catch (err) {
     console.warn("Backend not reachable, using local fallback state for threats");
   }
-  return null; // Signals fallback to use local state
+  return null;
 }
 
 /**
@@ -53,24 +53,39 @@ export async function fetchNodes() {
 
 /**
  * Runs a REAL sandbox analysis via the backend's Playwright-based engine.
- * POSTs { target_url, sms_text } to /api/sandbox/analyze and returns the
- * raw JSON response — no client-side fabrication happens here or in the
- * caller. Throws on network failure or non-2xx status so the caller can
- * show an honest error instead of silently falling back to fake data.
+ * POSTs { target_url, sms_text } to /api/sandbox/analyze
  */
 export async function analyzeUrl(targetUrl, smsText) {
+  let actualUrl = "";
+  let actualText = null;
+
+  // 인자가 객체로 잘못 넘어올 경우 방어 파싱
+  if (typeof targetUrl === "object" && targetUrl !== null) {
+    actualUrl = targetUrl.target_url || targetUrl.url || "";
+    actualText = targetUrl.sms_text || targetUrl.text || smsText || null;
+  } else {
+    actualUrl = targetUrl || "";
+    actualText = smsText || null;
+  }
+
+  if (typeof actualText === "string") {
+    actualText = actualText.trim().length > 0 ? actualText.trim() : null;
+  }
+
   const res = await fetch(`${BACKEND_URL}/api/sandbox/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      target_url: targetUrl,
-      sms_text: smsText && smsText.trim().length > 0 ? smsText : null
+      target_url: String(actualUrl),
+      sms_text: actualText
     }),
     signal: AbortSignal.timeout(30000)
   });
 
   if (!res.ok) {
-    throw new Error(`백엔드가 오류 상태를 반환했습니다 (HTTP ${res.status})`);
+    const errorBody = await res.json().catch(() => null);
+    const detailMsg = errorBody?.detail ? JSON.stringify(errorBody.detail) : `HTTP ${res.status}`;
+    throw new Error(`백엔드가 오류 상태를 반환했습니다: ${detailMsg}`);
   }
 
   return res.json();
@@ -122,18 +137,6 @@ export function createSandboxWebSocket(onMessage, onError, onClose) {
   return ws;
 }
 
-// =====================================================================
-// Mock Bank (demo virtual account) API
-// ---------------------------------------------------------------------
-// These all talk to /api/mockbank/* on the backend, which operates only
-// on an in-memory FAKE ledger (see backend/mock_bank.py). Nothing here
-// is connected to any real bank or Open Banking API.
-// =====================================================================
-
-/**
- * Fetches the current status (balance, locked, lockRemainingSeconds, ...)
- * of a single demo virtual account.
- */
 export async function fetchMockBankAccount(accountNumber) {
   try {
     const res = await fetch(`${BACKEND_URL}/api/mockbank/accounts/${encodeURIComponent(accountNumber)}`, {
@@ -149,12 +152,6 @@ export async function fetchMockBankAccount(accountNumber) {
   return null;
 }
 
-/**
- * Attempts a (fake) transfer between demo virtual accounts. If the sender
- * account is currently locked, the backend genuinely rejects this — the
- * response's `success` field reflects a real check, not a UI assumption.
- * Throws on network failure so the caller can show an honest error.
- */
 export async function attemptMockTransfer(fromAccount, toAccount, amount) {
   const res = await fetch(`${BACKEND_URL}/api/mockbank/transfer`, {
     method: "POST",
@@ -169,10 +166,6 @@ export async function attemptMockTransfer(fromAccount, toAccount, amount) {
   return res.json();
 }
 
-/**
- * Manually locks a demo virtual account — useful for demoing the lock
- * behavior without needing to run a full malicious-URL sandbox analysis.
- */
 export async function lockMockAccount(accountNumber, durationMinutes = 30, reason = "Manual lock (demo)") {
   try {
     const res = await fetch(`${BACKEND_URL}/api/mockbank/lock`, {
@@ -191,9 +184,6 @@ export async function lockMockAccount(accountNumber, durationMinutes = 30, reaso
   return null;
 }
 
-/**
- * Manually unlocks a demo virtual account.
- */
 export async function unlockMockAccount(accountNumber) {
   try {
     const res = await fetch(`${BACKEND_URL}/api/mockbank/unlock`, {
