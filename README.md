@@ -196,13 +196,13 @@ SafeShield의 Blockchain Demo는 **3개의 Terminal**을 사용하여 Local Bloc
 https://github.com/user-attachments/assets/9f503fcf-c2f3-4b15-84c1-57ee03a9864a
 
 
-## 8. Blockchain Demo
+## 9. Blockchain System Execution & Verification
 
 SafeShield의 Blockchain Demo는 **3개의 Terminal**을 사용하여 Local Blockchain, Validator 검증, Event 감지를 동시에 실행합니다.
 
 <!-- Blockchain_Demo.mp4 영상 -->
 
-### 8.1 Demo Structure
+### 9.1 Demo Structure
 
 | Terminal | 역할 | 실행 내용 |
 | :--- | :--- | :--- |
@@ -210,7 +210,7 @@ SafeShield의 Blockchain Demo는 **3개의 Terminal**을 사용하여 Local Bloc
 | **Terminal 2** | Deploy / Submit / Vote | Contract 배포 → Threat 등록 → Validator 투표 |
 | **Terminal 3** | Event Listener | `ThreatConfirmed` 이벤트 실시간 감지 |
 
-### 8.2 Execution
+### 9.2 Execution
 
 **Terminal 1 — Local Blockchain**
 
@@ -242,7 +242,7 @@ node scripts/approveThreat.js <THREAT_ID>
 
 각 Validator는 `APPROVE(악성)` 또는 `REJECT(정상)` 중 하나를 선택합니다.
 
-### 8.3 Validation Result
+### 9.3 Validation Result
 
 | 조건 | 최종 상태 | Blacklist |
 | :--- | :--- | :--- |
@@ -259,7 +259,7 @@ Blacklisted: true
 
 동시에 `ThreatConfirmed` 이벤트가 발생하며 Terminal 3의 Event Listener에서 확인할 수 있습니다.
 
-### 8.4 Test
+### 9.4 Test
 
 Smart Contract의 Threat 등록, Validator 검증, 상태 변경 등의 핵심 로직을 테스트합니다.
 
