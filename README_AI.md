@@ -75,7 +75,7 @@
     - try/finally로 임시 파일 반드시 삭제 (샌드박스 격리)
 
 [4] AI 위협 분석 (ai_classifier.py)
-    - 추출된 실제 텍스트 + 샌드박스가 관측한 실제 기술적 증거 (리다이렉트 횟수, 다운로드된 권한 목록)를 함께 Google Gemini API (gemini-1.5-flash / gemini-2.5-flash)에 전달
+    - 추출된 실제 텍스트 + 샌드박스가 관측한 실제 기술적 증거 (리다이렉트 횟수, 다운로드된 권한 목록)를 함께 Google Gemini API (gemini-3.6-flash)에 전달
     - Gemini가 다음을 구조화된 JSON으로 분석:
         · 피싱 유형 분류        · 사칭 대상 기관
         · 사용된 사회공학 기법   · 텍스트-기술증거 상관관계
@@ -103,7 +103,7 @@
 
 - **입력 신호 이원화**: (1) 페이지/SMS의 실제 텍스트 의미, (2) 샌드박스가 실측한 기술적 텔레메트리(리다이렉트 수, 실제 다운로드된 파일의 위험 권한)를 함께 LLM에 제공
 - **출력**: 단일 라벨이 아니라 사칭 대상, 사용된 사회공학 기법, 텍스트-기술증거 간 정합성 분석, 권고 조치를 포함한 **분석 리포트**
-- **비용 효율 및 높은 접근성**: Google Gemini API (gemini-1.5-flash)의 무료 티어(Free Tier)를 활용하여 API 호출 비용 문제 없이 안정적인 다차원 리포트 생성
+- **비용 효율 및 높은 접근성**: Google Gemini API (gemini-3.6-flash)의 무료 티어(Free Tier)를 활용하여 API 호출 비용 문제 없이 안정적인 다차원 리포트 생성
 - **안전한 폴백**: API 키 미설정 시 자동으로 키워드 기반 규칙 엔진으로 전환 — 서비스 가용성을 AI 의존적으로 만들지 않음
 
 ---
@@ -154,7 +154,7 @@
 backend/
 ├── main.py                 # FastAPI 앱, 라우팅, 엔드포인트 정의
 ├── sandbox.py               # Playwright 기반 실제 샌드박스 분석 엔진
-├── ai_classifier.py          # Claude API 기반 AI 위협 분석 모듈
+├── ai_classifier.py          # Gemini API 기반 AI 위협 분석 모듈
 ├── mock_bank.py              # 데모 가상계좌 잠금/이체 엔진
 ├── blockchain.py             # 멀티시그 오라클 합의 시뮬레이션
 ├── analyzer.py               # (레거시) 스트리밍 로그 기반 분석 파이프라인
