@@ -122,16 +122,18 @@ On-chain 기록
 
 ## 5. Tech Stack
 
+## 5. Tech Stack
+
 | Layer | Technology |
-|---|---|
-| Frontend | React, Vite, Tailwind CSS |
-| Backend | FastAPI, Python |
-| Dynamic Analysis | Playwright |
-| AI | Google Gemini API |
-| Smart Contract | Solidity |
-| Blockchain | Hardhat Local Network |
-| Web3 Client | Ethers.js |
-| Realtime | WebSocket, Event Listener |
+| :--- | :--- |
+| **Frontend** | ![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black) ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white) |
+| **Backend** | ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white) ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white) |
+| **Dynamic Analysis** | ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat-square&logo=playwright&logoColor=white) |
+| **AI** | ![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white) |
+| **Smart Contract** | ![Solidity](https://img.shields.io/badge/Solidity-363636?style=flat-square&logo=solidity&logoColor=white) |
+| **Blockchain** | ![Hardhat](https://img.shields.io/badge/Hardhat-FFF100?style=flat-square&logo=hardhat&logoColor=black) |
+| **Web3 Client** | ![Ethers.js](https://img.shields.io/badge/Ethers.js-24292E?style=flat-square&logo=ethereum&logoColor=white) |
+| **Realtime** | ![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=flat-square&logo=socketdotio&logoColor=white) Event Listener |
 
 ---
 
