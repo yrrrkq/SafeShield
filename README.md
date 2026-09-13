@@ -23,9 +23,10 @@ SafeShield는 의심 URL을 **AI Sandbox로 분석**하고, 탐지된 위협 정
 ## 2. AI Sandbox
 
 AI Sandbox는 URL에 직접 접속하여 수집한 기술적 증거와 AI 분석 결과를 결합해 위협도(Threat)를 판단합니다.
-| AI 위협 분석 리포트 | AI 분석 결과 상세 |
-| :---: | :---: |
-| <img src="https://github.com/user-attachments/assets/650817dd-98e2-4210-be62-7d7bb031fac2" width="100%"> | <img src="https://github.com/user-attachments/assets/bf1bb5f1-601c-41d4-93b9-840d28eeb4fe" width="100%"> |
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/650817dd-98e2-4210-be62-7d7bb031fac2" width="49%" alt="AI 위협 분석 리포트" />
+  <img src="https://github.com/user-attachments/assets/bf1bb5f1-601c-41d4-93b9-840d28eeb4fe" width="49%" alt="AI 분석 결과 상세" />
+</p>
 
 
 
