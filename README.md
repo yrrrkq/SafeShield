@@ -133,7 +133,7 @@ On-chain 기록
 | **Smart Contract** | ![Solidity](https://img.shields.io/badge/Solidity-363636?style=flat-square&logo=solidity&logoColor=white) |
 | **Blockchain** | ![Hardhat](https://img.shields.io/badge/Hardhat-FFF100?style=flat-square&logo=hardhat&logoColor=black) |
 | **Web3 Client** | ![Ethers.js](https://img.shields.io/badge/Ethers.js-24292E?style=flat-square&logo=ethereum&logoColor=white) |
-| **Realtime** | ![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=flat-square&logo=socketdotio&logoColor=white) ![Event Listener](https://img.shields.io/badge/Event_Listener-4A4A4A?style=flat-square) | **Realtime** | ![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=flat-square&logo=socketdotio&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black) Event Listener | |
+| **Realtime** | ![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=flat-square&logo=socketdotio&logoColor=white) ![Event Listener](https://img.shields.io/badge/Event_Listener-4A4A4A?style=flat-square) |
 
 ---
 
