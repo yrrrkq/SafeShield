@@ -10,7 +10,8 @@ SafeShield는 의심 URL을 **AI Sandbox로 분석**하고, 탐지된 위협 정
 
 ## 1. SafeShield Demo
 
-<img width="800" height="450" alt="safeshield_demo-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/c96516f5-02bd-4d2d-8b16-a7d836d264a9" />
+<img width="800" height="450" alt="safeshield_demo-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/718edbe5-f6d5-4b6f-be43-1daefc58b901" />
+
 
 
 
