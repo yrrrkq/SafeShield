@@ -62,7 +62,7 @@ Hybrid Risk Score (0~100)
 
 ## 3. Blockchain Threat Validation
 
-AI가 탐지한 위협(Threat) 정보은 Solidity 기반 `ThreatRegistry` Smart Contract에 등록됩니다.
+AI가 탐지한 위협(Threat) 정보는 Solidity 기반 `ThreatRegistry` Smart Contract에 등록됩니다.
 
 Validator는 각자의 Wallet Account를 사용해 독립적으로:
 
