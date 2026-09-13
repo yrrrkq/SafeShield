@@ -10,7 +10,10 @@ SafeShield는 의심 URL을 **AI Sandbox로 분석**하고, 탐지된 위협 정
 
 ## 1. SafeShield Demo
 
-[실제 서비스 화면 이미지]
+<img width="1916" height="907" alt="image" src="https://github.com/user-attachments/assets/7e0fd583-a2c0-473c-b1ef-fbc54c8a4881" />
+<img width="1917" height="907" alt="image" src="https://github.com/user-attachments/assets/dbe00d87-5e31-44fa-8cd1-475d23170b30" />
+
+
 
 > 의심 URL 분석부터 AI 위험도 판별, 온체인 위협 검증 결과까지 확인할 수 있는 SafeShield 데모 화면입니다.
 
@@ -18,7 +21,7 @@ SafeShield는 의심 URL을 **AI Sandbox로 분석**하고, 탐지된 위협 정
 
 ## 2. AI Sandbox
 
-AI Sandbox는 URL에 직접 접속하여 수집한 기술적 증거와 AI 분석 결과를 결합해 위협도를 판단합니다.
+AI Sandbox는 URL에 직접 접속하여 수집한 기술적 증거와 AI 분석 결과를 결합해 위협도(Threat)를 판단합니다.
 
 ### Dynamic Analysis
 - Playwright 기반 Headless Chromium 실행
@@ -52,7 +55,7 @@ Hybrid Risk Score (0~100)
 
 ## 3. Blockchain Threat Validation
 
-AI가 탐지한 위협은 Solidity 기반 `ThreatRegistry` Smart Contract에 등록됩니다.
+AI가 탐지한 위협(Threat) 정보은 Solidity 기반 `ThreatRegistry` Smart Contract에 등록됩니다.
 
 Validator는 각자의 Wallet Account를 사용해 독립적으로:
 
@@ -86,7 +89,7 @@ threshold = validatorCount / 2 + 1
 
 ## 4. Why Blockchain?
 
-SafeShield는 AI의 판단만으로 위협을 즉시 확정하지 않습니다.
+SafeShield는 AI의 판단만으로 위협(Threat)을 즉시 확정하지 않습니다.
 
 ```text
 AI Detection
