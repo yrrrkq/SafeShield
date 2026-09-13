@@ -168,7 +168,7 @@ On-chain 기록
 | :--- | :--- | :--- |
 | `backend/.env` | `GEMINI_API_KEY` | Gemini API 분석 엔진에 필요한 인증 키 (`GEMINI_API_KEY=your_key_here`) |
 
----
+
 
 ### 7.2 Installation & Setup
 
@@ -177,7 +177,7 @@ On-chain 기록
 | **백엔드/Playwright 설치** | `backend` | `pip install playwright --break-system-packages`<br>`python -m playwright install chromium` | 파이썬 의존성 패키지 및 샌드박스 동적 분석용 Chromium 브라우저 설치 |
 | **프론트엔드 설치** | `frontend` | `npm install` | React UI 관련 패키지 설치 |
 
----
+
 
 ### 7.3 Execution Steps
 
