@@ -1,9 +1,24 @@
 node_modules/
 .env
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# AI / Backend
+dist/
+build/
+
+# Hardhat
 artifacts/
 cache/
 coverage/
 
+# Local deployment
 deployment.json
+deployment-oracle.json
+
+# macOS
 .DS_Store
+

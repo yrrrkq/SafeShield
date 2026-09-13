@@ -1,3 +1,4 @@
+// 블록체인 ThreatRegistry 배포
 // Hardhat Local Network에 ThreatRegistry 배포
 import hre from "hardhat";
 import readline from "readline";

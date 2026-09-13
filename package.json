@@ -1,18 +1,16 @@
 {
   "name": "blockchain",
   "version": "1.0.0",
-  "description": "Account 1 = KISA Account 2 = 경찰청 Account 3 = 안랩",
-  "main": "hardhat.config.js",
-  "directories": {
-    "test": "test"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "description": "Account 1 = KISA, Account 2 = 경찰청, Account 3 = 안랩",
   "type": "module",
+  "main": "hardhat.config.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:registry": "hardhat run scripts/deployThreatRegistry.js",
+    "deploy:oracle": "hardhat run scripts/deploySafeShieldOracle.js"
+  },
+  "license": "ISC",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.7",
     "hardhat": "^3.16.0"
