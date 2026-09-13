@@ -1,3 +1,4 @@
+// SafeShieldOracle 주소/Oracle Node 정보
 import hre from "hardhat";
 import readline from "readline";
 import fs from "fs";

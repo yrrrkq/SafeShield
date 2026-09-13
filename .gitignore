@@ -1,6 +1,10 @@
 node_modules/
 .env
-<<<<<<< HEAD
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
 
 # AI / Backend
 dist/
@@ -13,10 +17,8 @@ coverage/
 
 # Local deployment
 deployment.json
+deployment-oracle.json
 
 # macOS
 .DS_Store
-=======
-dist/
-build/
->>>>>>> ai모델수정
+
