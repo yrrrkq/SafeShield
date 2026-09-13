@@ -122,8 +122,6 @@ On-chain 기록
 
 ## 5. Tech Stack
 
-## 5. Tech Stack
-
 | Layer | Technology |
 | :--- | :--- |
 | **Frontend** | ![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black) ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white) |
@@ -132,7 +130,7 @@ On-chain 기록
 | **AI** | ![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white) |
 | **Smart Contract** | ![Solidity](https://img.shields.io/badge/Solidity-363636?style=flat-square&logo=solidity&logoColor=white) |
 | **Blockchain** | ![Hardhat](https://img.shields.io/badge/Hardhat-FFF100?style=flat-square&logo=hardhat&logoColor=black) |
-| **Web3 Client** | ![Ethers.js](https://img.shields.io/badge/Ethers.js-24292E?style=flat-square&logo=ethereum&logoColor=white) |
+| **Web3 Integration** | ![Ethers.js](https://img.shields.io/badge/Ethers.js-24292E?style=flat-square&logo=ethereum&logoColor=white) |
 | **Realtime** | ![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=flat-square&logo=socketdotio&logoColor=white) ![Event Listener](https://img.shields.io/badge/Event_Listener-4A4A4A?style=flat-square) |
 
 ---
@@ -193,40 +191,50 @@ On-chain 기록
 
 ## 8. Blockchain Demo
 
-블록체인 데모는 **3개의 Terminal**을 사용하여 Local Blockchain, Validator 투표, Event 감지를 동시에 실행합니다.
+SafeShield의 Blockchain Demo는 **3개의 Terminal**을 사용하여 Local Blockchain, Validator 검증, Event 감지를 동시에 실행합니다.
 
-### Terminal 1 — Local Blockchain
+https://github.com/user-attachments/assets/9f503fcf-c2f3-4b15-84c1-57ee03a9864a
 
-Hardhat Local Network를 실행합니다.  
-Smart Contract 배포와 Validator Transaction이 처리되는 로컬 블록체인 환경입니다.
+
+## 8. Blockchain Demo
+
+SafeShield의 Blockchain Demo는 **3개의 Terminal**을 사용하여 Local Blockchain, Validator 검증, Event 감지를 동시에 실행합니다.
+
+<!-- Blockchain_Demo.mp4 영상 -->
+
+### 8.1 Demo Structure
+
+| Terminal | 역할 | 실행 내용 |
+| :--- | :--- | :--- |
+| **Terminal 1** | Local Blockchain | Hardhat Local Network 실행 |
+| **Terminal 2** | Deploy / Submit / Vote | Contract 배포 → Threat 등록 → Validator 투표 |
+| **Terminal 3** | Event Listener | `ThreatConfirmed` 이벤트 실시간 감지 |
+
+### 8.2 Execution
+
+**Terminal 1 — Local Blockchain**
 
 ```bash
 npx hardhat node
 ```
 
-이 Terminal은 데모가 끝날 때까지 실행 상태를 유지합니다.
-
----
-
-### Terminal 2 — Deploy / Submit / Vote
-
-Smart Contract를 배포하고, Threat 등록 및 Validator 투표를 진행합니다.
-
-Contract 배포:
+**Terminal 2 — Deploy & Submit**
 
 ```bash
 node scripts/deployThreatRegistry.js
-```
-
-실행 시 Validator로 사용할 Account를 선택하며, Validator 수에 따라 과반수 Threshold가 자동 계산됩니다.
-
-Threat 등록:
-
-```bash
 node scripts/submitThreat.js http://malicious-example.com/test
 ```
 
-등록 후 출력되는 `Threat ID`를 사용하여 Validator 투표를 진행합니다.
+Contract 배포 시 Validator Account를 선택하며, Validator 수에 따라 **과반수 Threshold**가 자동 계산됩니다.  
+Threat 등록 후 출력되는 `Threat ID`를 사용하여 Validator 투표를 진행합니다.
+
+**Terminal 3 — Event Listener**
+
+```bash
+node scripts/listener.js
+```
+
+**Terminal 2 — Validator Vote**
 
 ```bash
 node scripts/approveThreat.js <THREAT_ID>
@@ -234,28 +242,24 @@ node scripts/approveThreat.js <THREAT_ID>
 
 각 Validator는 `APPROVE(악성)` 또는 `REJECT(정상)` 중 하나를 선택합니다.
 
----
+### 8.3 Validation Result
 
-### Terminal 3 — Event Listener
+| 조건 | 최종 상태 | Blacklist |
+| :--- | :--- | :--- |
+| APPROVE ≥ Threshold | `CONFIRMED` | `true` |
+| REJECT ≥ Threshold | `REJECTED` | `false` |
+| Threshold 미도달 | `PENDING` | `false` |
 
-Smart Contract에서 발생하는 `ThreatConfirmed` 이벤트를 실시간으로 감지합니다.
-
-```bash
-node scripts/listener.js
-```
-
-과반수 Validator가 APPROVE하면:
+과반수 Validator가 `APPROVE`하면 다음과 같이 상태가 변경됩니다.
 
 ```text
 Status: CONFIRMED
 Blacklisted: true
 ```
 
-가 되고, Terminal 3에서 `ThreatConfirmed` 이벤트를 확인할 수 있습니다.
+동시에 `ThreatConfirmed` 이벤트가 발생하며 Terminal 3의 Event Listener에서 확인할 수 있습니다.
 
----
-
-### Test
+### 8.4 Test
 
 Smart Contract의 Threat 등록, Validator 검증, 상태 변경 등의 핵심 로직을 테스트합니다.
 
