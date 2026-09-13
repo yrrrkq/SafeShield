@@ -156,7 +156,40 @@ On-chain 기록
 
 ---
 
-## 7. Blockchain Demo
+## 7. Getting Started
+
+### 7.1 Environment Variables (.env)
+
+`backend` 폴더 내에 `.env` 파일을 생성하고 본인의 Google Gemini API Key를 입력합니다.
+
+| 파일 위치 | 환경변수명 | 설명 |
+| :--- | :--- | :--- |
+| `backend/.env` | `GEMINI_API_KEY` | Gemini API 분석 엔진에 필요한 인증 키 (`GEMINI_API_KEY=your_key_here`) |
+
+---
+
+### 7.2 Installation & Setup
+
+| 구분 | 실행 경로 | 실행 명령어 | 역할 및 설명 |
+| :--- | :--- | :--- | :--- |
+| **백엔드/Playwright 설치** | `backend` | `pip install -r requirements.txt`<br>`pip install playwright --break-system-packages`<br>`python -m playwright install chromium` | 파이썬 의존성 패키지 및 샌드박스 동적 분석용 Chromium 브라우저 설치 |
+| **프론트엔드 설치** | `frontend` | `npm install` | React UI 관련 패키지 설치 |
+
+---
+
+### 7.3 Execution Steps
+
+각 서버 구동을 위해 3개의 터미널을 열어 아래 명령어를 각각 실행합니다.
+
+| 구분 | 실행 경로 | 실행 명령어 | 역할 및 설명 |
+| :--- | :--- | :--- | :--- |
+| **Backend Server (터미널 1)** | `backend` | `python -m uvicorn main:app --reload --port 8000` | FastAPI 메인 서버 및 AI 분석 엔진 실행 |
+| **Frontend Server (터미널 2)** | `frontend` | `npm run dev` | 웹 대시보드 UI 실행 |
+| **Test Target Server (터미널 3)** | `backend` | `python test_target_server.py` | Playwright 동적 분석을 위한 모의 피싱 타겟 서버 실행 |
+
+---
+
+## 8. Blockchain Demo
 
 블록체인 데모는 **3개의 Terminal**을 사용하여 Local Blockchain, Validator 투표, Event 감지를 동시에 실행합니다.
 
