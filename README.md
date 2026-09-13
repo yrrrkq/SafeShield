@@ -172,7 +172,7 @@ On-chain 기록
 
 | 구분 | 실행 경로 | 실행 명령어 | 역할 및 설명 |
 | :--- | :--- | :--- | :--- |
-| **백엔드/Playwright 설치** | `backend` | `pip install -r requirements.txt`<br>`pip install playwright --break-system-packages`<br>`python -m playwright install chromium` | 파이썬 의존성 패키지 및 샌드박스 동적 분석용 Chromium 브라우저 설치 |
+| **백엔드/Playwright 설치** | `backend` | `pip install playwright --break-system-packages`<br>`python -m playwright install chromium` | 파이썬 의존성 패키지 및 샌드박스 동적 분석용 Chromium 브라우저 설치 |
 | **프론트엔드 설치** | `frontend` | `npm install` | React UI 관련 패키지 설치 |
 
 ---
@@ -183,7 +183,7 @@ On-chain 기록
 
 | 구분 | 실행 경로 | 실행 명령어 | 역할 및 설명 |
 | :--- | :--- | :--- | :--- |
-| **Backend Server (터미널 1)** | `backend` | `python -m uvicorn main:app --reload --port 8000` | FastAPI 메인 서버 및 AI 분석 엔진 실행 |
+| **Backend Server (터미널 1)** | `backend` | `python -m uvicorn main:app --port 8000` | FastAPI 메인 서버 및 AI 분석 엔진 실행 |
 | **Frontend Server (터미널 2)** | `frontend` | `npm run dev` | 웹 대시보드 UI 실행 |
 | **Test Target Server (터미널 3)** | `backend` | `python test_target_server.py` | Playwright 동적 분석을 위한 모의 피싱 타겟 서버 실행 |
 
