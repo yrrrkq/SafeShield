@@ -1,5 +1,6 @@
 // 블록체인 ThreatRegistry 배포
 // Hardhat Local Network에 ThreatRegistry 배포
+
 import hre from "hardhat";
 import readline from "readline";
 import fs from "fs";
@@ -18,22 +19,22 @@ function question(query) {
 async function main() {
   const signers = await ethers.getSigners();
 
-  console.log("\n=================================");
-  console.log("Validator Account 설정");
-  console.log("=================================\n");
+  console.log("\n==========================================");
+  console.log("Deploying SafeShield ThreatRegistry");
+  console.log("==========================================\n");
 
   // Account #0은 Deployer / AI Backend용
-  console.log(`Account #0 : ${signers[0].address} [Deployer / AI Backend]`);
+  const deployer = signers[0];
+  console.log(`Account #0 : ${deployer.address} [Deployer / AI Backend]`);
 
-  // Validator로 선택 가능한 Account 출력
+  console.log("\n사용 가능한 Validator Account:");
+
   for (let i = 1; i < signers.length; i++) {
     console.log(`Account #${i} : ${signers[i].address}`);
   }
 
-  console.log();
-
   const input = await question(
-    "Validator로 사용할 Account 번호를 입력하세요 (예: 1,2,3): "
+    "\nValidator로 사용할 Account 번호를 입력하세요 (예: 1,2,3): "
   );
 
   const accountNumbers = input
@@ -57,28 +58,25 @@ async function main() {
   const uniqueAccountNumbers = [...new Set(accountNumbers)];
 
   if (uniqueAccountNumbers.length !== accountNumbers.length) {
-    throw new Error("중복된 Account가 있습니다.");
+    throw new Error("중복된 Validator Account가 있습니다.");
   }
 
   const validatorAddresses = uniqueAccountNumbers.map(
     (num) => signers[num].address
   );
 
-  console.log("\n선택된 Validator:");
+  console.log("\n선택된 Validators:");
 
   uniqueAccountNumbers.forEach((num) => {
     console.log(`Account #${num} : ${signers[num].address}`);
   });
 
-  // Account #0을 Deployer로 사용
-  const deployer = signers[0];
-
+  // 선택한 Validator 주소들을 Constructor에 전달
   const ThreatRegistry = await ethers.getContractFactory(
     "ThreatRegistry",
     deployer
   );
 
-  // 선택한 Validator 주소들을 Constructor에 전달
   const threatRegistry = await ThreatRegistry.deploy(
     validatorAddresses
   );
@@ -86,13 +84,19 @@ async function main() {
   await threatRegistry.waitForDeployment();
 
   const contractAddress = await threatRegistry.getAddress();
-
-  // 과반수 임계값 확인
   const threshold = await threatRegistry.threshold();
+
+  console.log("\n==========================================");
+  console.log("ThreatRegistry Deployment Complete");
+  console.log("==========================================");
+
+  console.log("Contract Address :", contractAddress);
+  console.log("Validator Count  :", validatorAddresses.length);
+  console.log("Threshold        :", threshold.toString());
 
   // 배포 정보를 deployment.json에 자동 저장
   const deploymentInfo = {
-    contractAddress: contractAddress,
+    contractAddress,
     validatorCount: validatorAddresses.length,
     threshold: Number(threshold),
     validators: uniqueAccountNumbers.map((num) => ({
@@ -105,14 +109,6 @@ async function main() {
     "./deployment.json",
     JSON.stringify(deploymentInfo, null, 2)
   );
-
-  console.log("\n=================================");
-  console.log("ThreatRegistry deployed!");
-  console.log("=================================");
-
-  console.log("Contract address:", contractAddress);
-  console.log("Validator count:", validatorAddresses.length);
-  console.log("Majority threshold:", threshold.toString());
 
   console.log("\n배포 정보가 deployment.json에 저장되었습니다.");
 
