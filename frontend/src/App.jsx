@@ -809,7 +809,7 @@ function SettingsPage({ isBackendOnline, mockAccount, onManualLock, onManualUnlo
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-2">
         <h2 className="text-sm font-bold text-slate-900">AI 위협 분석기</h2>
         <p className="text-xs text-slate-500">
-          백엔드 환경변수 <code className="font-mono bg-slate-100 px-1 rounded">ANTHROPIC_API_KEY</code>가
+          백엔드 환경변수 <code className="font-mono bg-slate-100 px-1 rounded">GEMINI_API_KEY</code>가
           설정되어 있으면 Gemini 기반 AI 분석이, 없으면 키워드 기반 분석이 자동으로 사용됩니다.
           현재 어떤 방식이 사용됐는지는 각 분석 결과 화면 하단의 "분석 모델" 항목에서 확인할 수 있습니다.
         </p>
