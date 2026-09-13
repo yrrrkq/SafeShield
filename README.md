@@ -6,6 +6,15 @@ SafeShield는 의심 URL을 **AI Sandbox로 분석**하고, 탐지된 위협 정
 
 기존의 기관별 분산된 위협 정보 공유 구조를 넘어, AI가 탐지한 위협을 여러 검증 주체가 확인하고 그 결과를 온체인에 기록하여 **신뢰 가능한 Threat Intelligence를 빠르게 공유하는 것**을 목표로 합니다.
 
+---
+
+## 1. SafeShield Demo
+
+[실제 서비스 화면 이미지]
+
+> 의심 URL 분석부터 AI 위험도 판별, 온체인 위협 검증 결과까지 확인할 수 있는 SafeShield 데모 화면입니다.
+
+---
 
 ## 2. AI Sandbox
 
@@ -161,7 +170,7 @@ Smart Contract를 배포하고, Threat 등록 및 Validator 투표를 진행합�
 Contract 배포:
 
 ```bash
-node scripts/deploy.js
+node scripts/deployThreatRegistry.js
 ```
 
 실행 시 Validator로 사용할 Account를 선택하며, Validator 수에 따라 과반수 Threshold가 자동 계산됩니다.
@@ -209,25 +218,5 @@ Smart Contract의 Threat 등록, Validator 검증, 상태 변경 등의 핵심 �
 npx hardhat test
 ```
 
-현재 `ThreatRegistry` 테스트 **8/8 통과**.
----
 
-## 8. MVP Scope
 
-| 기능 | 구현 상태 |
-|---|---|
-| Playwright URL 동적 분석 | ✅ |
-| APK 정적 분석 | ✅ |
-| Gemini AI 분석 | ✅ |
-| Hybrid Risk Score | ✅ |
-| Solidity ThreatRegistry | ✅ |
-| Dynamic Validator / Threshold Validation | ✅ |
-| ThreatConfirmed Event Listener | ✅ |
-| Hardhat Local Blockchain | ✅ |
-| Mock Bank 데모 | ✅ |
-| Public Blockchain 배포 | ❌ |
-| 실제 금융기관·통신사 연동 | ❌ |
-
-현재 MVP는 **AI 탐지 → 온체인 등록 → 다수 Validator 검증 → 위협 확정 → Event 감지**까지 구현합니다.
-
-향후에는 Event Listener를 금융기관·통신사·보안 솔루션의 API/WebSocket/Threat Feed와 연결하여 검증된 악성 URL·APK 정보를 실시간 차단 시스템에 활용할 수 있습니다.
