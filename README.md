@@ -116,7 +116,6 @@ On-chain 기록
 
 를 구현합니다.
 
-<!-- Blockchain_Demo.mp4 영상 -->
 
 원본 APK나 분석 보고서 전체가 아닌 **URL Hash, APK Hash, Evidence Hash 등의 식별 정보와 검증 상태**를 온체인에 저장합니다.
 
