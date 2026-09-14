@@ -1,7 +1,8 @@
 # SafeShield
 
 > AI Sandbox + Web3 기반 스미싱·보이스피싱 위협 탐지 및 검증 시스템
-> <img width="1597" height="892" alt="image" src="https://github.com/user-attachments/assets/fc97f486-1394-4c14-86cb-5e07b214dae4" />
+> <img width="1577" height="847" alt="image" src="https://github.com/user-attachments/assets/c40c0f16-3d29-4633-9927-2858061ce4a5" />
+
 
 
 SafeShield는 의심 URL을 **AI Sandbox에서 분석**하고, 탐지된 위협 정보를 **블록체인에 등록한 뒤 다수 Validator의 검증을 통해 악성 여부를 확정**하는 시스템입니다.
